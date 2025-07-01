@@ -21,7 +21,6 @@ interface NewsStats {
 interface MainScreenProps {
   articles: Article[];
   setArticles: React.Dispatch<React.SetStateAction<Article[]>>;
-  stats: NewsStats | null;
   setStats: React.Dispatch<React.SetStateAction<NewsStats | null>>;
   isLoading: boolean;
   setIsLoading: React.Dispatch<React.SetStateAction<boolean>>;
@@ -32,7 +31,6 @@ interface MainScreenProps {
 export function MainScreen({
   articles,
   setArticles,
-  stats,
   setStats,
   isLoading,
   setIsLoading,
@@ -117,52 +115,6 @@ export function MainScreen({
           </div>
         </div>
       </div>
-
-      {/* Stats Bar */}
-      {stats && (
-        <div className="bg-blue-50 border-b">
-          <div className="max-w-7xl mx-auto px-4 py-3">
-            <div className="flex items-center justify-center space-x-8 text-sm">
-              <div className="flex items-center space-x-1">
-                <span className="font-medium text-blue-900">
-                  {stats.interests}
-                </span>
-                <span className="text-blue-700">interests</span>
-              </div>
-              <div className="flex items-center space-x-1">
-                <span className="font-medium text-blue-900">
-                  {stats.searchResults}
-                </span>
-                <span className="text-blue-700">articles searched</span>
-              </div>
-              <div className="flex items-center space-x-1">
-                <span className="font-medium text-blue-900">
-                  {stats.duplicatesFiltered}
-                </span>
-                <span className="text-blue-700">duplicates filtered</span>
-              </div>
-              <div className="flex items-center space-x-1">
-                <span className="font-medium text-blue-900">
-                  {stats.newArticlesSaved}
-                </span>
-                <span className="text-blue-700">new articles saved</span>
-              </div>
-              <div className="flex items-center space-x-1">
-                <span className="font-medium text-blue-900">
-                  {stats.topicsExtracted}
-                </span>
-                <span className="text-blue-700">topics extracted</span>
-              </div>
-              <div className="flex items-center space-x-1">
-                <span className="font-medium text-blue-900">
-                  {stats.articlesRanked}
-                </span>
-                <span className="text-blue-700">articles ranked</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-8">

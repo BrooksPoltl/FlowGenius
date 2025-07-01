@@ -5,10 +5,11 @@
  */
 
 import React, { useState } from 'react';
-import { TrendingUp, BarChart3 } from 'lucide-react';
+import { TrendingUp, BarChart3, Menu, X } from 'lucide-react';
 
 import { MainScreen } from '../screens/main';
 import { DashboardScreen } from '../screens/dashboard';
+import { HistorySidebar } from './HistorySidebar';
 import { Article } from './ui/ArticleCard';
 
 type AppScreen = 'news' | 'dashboard';
@@ -25,6 +26,7 @@ interface NewsStats {
 
 export function MainApp() {
   const [currentScreen, setCurrentScreen] = useState<AppScreen>('news');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   // Shared state that persists across screen navigation
   const [articles, setArticles] = useState<Article[]>([]);
@@ -32,14 +34,28 @@ export function MainApp() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  /**
+   * Handles when a briefing is selected from the history sidebar
+   */
+  const handleBriefingSelect = (briefingArticles: Article[]) => {
+    setArticles(briefingArticles);
+    setStats(null); // Clear current run stats when viewing historical data
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Navigation */}
-      <nav className="bg-white shadow-sm border-b">
+      <nav className="bg-white shadow-sm border-b flex-shrink-0">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex justify-between items-center h-16">
-            {/* Logo */}
+            {/* Logo and Sidebar Toggle */}
             <div className="flex items-center space-x-3">
+              <button
+                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
+              </button>
               <TrendingUp className="h-8 w-8 text-blue-600" />
               <h1 className="text-xl font-bold text-gray-900">FlowGenius</h1>
             </div>
@@ -74,22 +90,35 @@ export function MainApp() {
         </div>
       </nav>
 
-      {/* Content */}
-      <main>
-        {currentScreen === 'news' && (
-          <MainScreen
-            articles={articles}
-            setArticles={setArticles}
-            stats={stats}
-            setStats={setStats}
+      {/* Main Layout with Sidebar */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Sidebar */}
+        {isSidebarOpen && currentScreen === 'news' && (
+          <HistorySidebar
+            onBriefingSelect={handleBriefingSelect}
             isLoading={isLoading}
             setIsLoading={setIsLoading}
-            error={error}
             setError={setError}
           />
         )}
-        {currentScreen === 'dashboard' && <DashboardScreen />}
-      </main>
+
+        {/* Content */}
+        <main className="flex-1 overflow-auto">
+          {currentScreen === 'news' && (
+            <MainScreen
+              articles={articles}
+              setArticles={setArticles}
+              stats={stats}
+              setStats={setStats}
+              isLoading={isLoading}
+              setIsLoading={setIsLoading}
+              error={error}
+              setError={setError}
+            />
+          )}
+          {currentScreen === 'dashboard' && <DashboardScreen />}
+        </main>
+      </div>
     </div>
   );
 }

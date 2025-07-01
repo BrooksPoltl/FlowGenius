@@ -22,6 +22,10 @@ declare global {
 
       // Dashboard analytics
       getDashboardData: () => Promise<any>;
+
+      // Briefings history
+      getBriefingsList: () => Promise<any>;
+      getBriefingArticles: (briefingId: number) => Promise<any>;
     };
   }
 }

@@ -36,6 +36,11 @@ const API = {
     console.log('🔧 getDashboardData called from preload');
     return ipcRenderer.invoke('get-dashboard-data');
   },
+
+  // Briefings history
+  getBriefingsList: () => ipcRenderer.invoke('get-briefings-list'),
+  getBriefingArticles: (briefingId: number) =>
+    ipcRenderer.invoke('get-briefing-articles', briefingId),
 };
 
 console.log('🔧 API object created:', Object.keys(API));

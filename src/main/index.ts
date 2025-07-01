@@ -80,6 +80,7 @@ function setupInterestsIPC(): void {
  * Sets up IPC handlers for news curation workflow
  */
 function setupNewsIPC(): void {
+  console.log('🔗 Starting setupNewsIPC function...');
   // Run the daily news curation workflow
   ipcMain.handle('get-daily-news', async () => {
     const startTime = Date.now();
@@ -114,6 +115,37 @@ function setupNewsIPC(): void {
       );
 
       console.log(`📊 Workflow run statistics saved (duration: ${duration}ms)`);
+
+      // Archive the briefing
+      if (result.newArticlesSaved > 0) {
+        const briefingTitle = new Date().toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        });
+
+        const insertBriefing = db.prepare(
+          'INSERT INTO Briefings (title) VALUES (?)'
+        );
+        const briefingResult = insertBriefing.run(briefingTitle);
+        const briefingId = briefingResult.lastInsertRowid;
+
+        const insertBriefingArticle = db.prepare(
+          'INSERT INTO Briefing_Articles (briefing_id, article_id) VALUES (?, ?)'
+        );
+
+        const getArticleId = db.prepare('SELECT id FROM Articles WHERE url = ?');
+
+        for (const article of result.curatedArticles) {
+          const articleRow = getArticleId.get(article.url) as
+            | { id: number }
+            | undefined;
+          if (articleRow) {
+            insertBriefingArticle.run(briefingId, articleRow.id);
+          }
+        }
+        console.log(`🗞️  Archived briefing "${briefingTitle}" with ${result.curatedArticles.length} articles.`);
+      }
 
       // Get the newly curated articles with their personalization scores
       const curatedArticles = result.curatedArticles || [];
@@ -350,6 +382,76 @@ function setupNewsIPC(): void {
           error instanceof Error
             ? error.message
             : 'Failed to get dashboard data',
+      };
+    }
+  });
+
+  console.log('🔗 Finished registering dashboard handler, moving to briefings...');
+
+  // IPC Handler for Briefings History
+  console.log('🔗 Registering get-briefings-list IPC handler...');
+  ipcMain.handle('get-briefings-list', async () => {
+    try {
+      console.log('📚 Fetching briefings list...');
+
+      const briefings = db
+        .prepare(
+          `
+          SELECT id, title, created_at,
+                 (SELECT COUNT(*) FROM Briefing_Articles WHERE briefing_id = Briefings.id) as article_count
+          FROM Briefings 
+          ORDER BY created_at DESC
+        `
+        )
+        .all();
+
+      return {
+        success: true,
+        data: briefings,
+      };
+    } catch (error) {
+      console.error('Error getting briefings list:', error);
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Failed to get briefings list',
+      };
+    }
+  });
+
+  // IPC Handler for Briefing Articles
+  console.log('🔗 Registering get-briefing-articles IPC handler...');
+  ipcMain.handle('get-briefing-articles', async (_, briefingId: number) => {
+    try {
+      console.log(`📰 Fetching articles for briefing ID: ${briefingId}...`);
+
+      const articles = db
+        .prepare(
+          `
+          SELECT a.url, a.title, a.description, a.source, a.published_at, 
+                 a.thumbnail_url, a.personalization_score
+          FROM Articles a
+          JOIN Briefing_Articles ba ON a.id = ba.article_id
+          WHERE ba.briefing_id = ?
+          ORDER BY a.personalization_score DESC, a.fetched_at DESC
+        `
+        )
+        .all(briefingId);
+
+      return {
+        success: true,
+        data: articles,
+      };
+    } catch (error) {
+      console.error('Error getting briefing articles:', error);
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Failed to get briefing articles',
       };
     }
   });
