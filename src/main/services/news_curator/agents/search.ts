@@ -45,11 +45,21 @@ export async function searchAgent(state: SettingsState): Promise<SearchState> {
     const articles: Article[] = [];
     const searchErrors: string[] = [];
 
-    // Search for articles for each interest
-    for (const interest of interests) {
+    // Search for articles for each interest with rate limiting (1 TPS)
+    for (let i = 0; i < interests.length; i++) {
+      const interest = interests[i];
+      
       try {
+        // Add delay between requests to respect 1 TPS limit (except for first request)
+        if (i > 0) {
+          console.log(`Waiting 1 second before searching for "${interest}"...`);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+        
+        console.log(`Searching for "${interest}"...`);
         const searchResults = await searchNewsForTopic(interest, braveApiKey);
         articles.push(...searchResults);
+        console.log(`Found ${searchResults.length} articles for "${interest}"`);
       } catch (error) {
         const errorMessage = `Failed to search for "${interest}": ${error instanceof Error ? error.message : 'Unknown error'}`;
         console.error(errorMessage);

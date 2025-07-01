@@ -16,6 +16,9 @@ export const CREATE_ARTICLES_TABLE = `
     url TEXT NOT NULL UNIQUE,
     title TEXT NOT NULL,
     description TEXT,
-    published_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    source TEXT,
+    published_at TIMESTAMP,
+    thumbnail_url TEXT,
+    fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   );
 `;
