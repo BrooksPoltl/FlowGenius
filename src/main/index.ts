@@ -82,10 +82,38 @@ function setupInterestsIPC(): void {
 function setupNewsIPC(): void {
   // Run the daily news curation workflow
   ipcMain.handle('get-daily-news', async () => {
+    const startTime = Date.now();
+
     try {
       console.log('📰 Starting news curation workflow...');
       const result = await runNewsCuration();
       console.log('✅ News curation completed successfully');
+
+      const endTime = Date.now();
+      const duration = endTime - startTime;
+
+      // Save workflow run statistics to database
+      const insertWorkflowRun = db.prepare(`
+        INSERT INTO WorkflowRuns (
+          interests_count, search_results_count, curated_articles_count, 
+          duplicates_filtered_count, new_articles_saved_count, 
+          topics_extracted_count, articles_ranked_count, 
+          status, completed_at, duration_ms
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'completed', datetime('now'), ?)
+      `);
+
+      insertWorkflowRun.run(
+        result.userInterests?.length || 0,
+        result.searchResults?.length || 0,
+        result.curatedArticles?.length || 0,
+        result.duplicatesFiltered || 0,
+        result.newArticlesSaved || 0,
+        result.topicsExtractedCount || 0,
+        result.rankedCount || 0,
+        duration
+      );
+
+      console.log(`📊 Workflow run statistics saved (duration: ${duration}ms)`);
 
       // Get the newly curated articles with their personalization scores
       const curatedArticles = result.curatedArticles || [];
@@ -131,10 +159,24 @@ function setupNewsIPC(): void {
       };
     } catch (error) {
       console.error('Error getting daily news:', error);
+
+      // Save failed workflow run to database
+      const endTime = Date.now();
+      const duration = endTime - startTime;
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to get daily news';
+
+      const insertFailedRun = db.prepare(`
+        INSERT INTO WorkflowRuns (
+          status, error_message, completed_at, duration_ms
+        ) VALUES ('failed', ?, datetime('now'), ?)
+      `);
+
+      insertFailedRun.run(errorMessage, duration);
+
       return {
         success: false,
-        error:
-          error instanceof Error ? error.message : 'Failed to get daily news',
+        error: errorMessage,
       };
     }
   });
@@ -213,15 +255,33 @@ function setupNewsIPC(): void {
           `
           SELECT 
             COUNT(*) as totalArticles,
-            COUNT(*) - COUNT(DISTINCT url) as duplicatesFiltered,
             COUNT(DISTINCT url) as uniqueArticles
           FROM Articles
         `
         )
         .get() as {
         totalArticles: number;
-        duplicatesFiltered: number;
         uniqueArticles: number;
+      };
+
+      // Get workflow statistics (duplicates filtered from actual runs)
+      const workflowStats = db
+        .prepare(
+          `
+          SELECT 
+            SUM(duplicates_filtered_count) as totalDuplicatesFiltered,
+            SUM(new_articles_saved_count) as totalNewArticlesSaved,
+            COUNT(*) as totalWorkflowRuns,
+            MAX(completed_at) as lastRunTime
+          FROM WorkflowRuns 
+          WHERE status = 'completed'
+        `
+        )
+        .get() as {
+        totalDuplicatesFiltered: number;
+        totalNewArticlesSaved: number;
+        totalWorkflowRuns: number;
+        lastRunTime: string;
       };
 
       // Get topics count
@@ -270,7 +330,13 @@ function setupNewsIPC(): void {
           topicAffinities,
           articleStats: {
             ...articleStats,
+            duplicatesFiltered: workflowStats.totalDuplicatesFiltered || 0,
             topicsExtracted: topicsCount.count,
+          },
+          workflowStats: {
+            totalWorkflowRuns: workflowStats.totalWorkflowRuns || 0,
+            totalNewArticlesSaved: workflowStats.totalNewArticlesSaved || 0,
+            lastRunTime: workflowStats.lastRunTime,
           },
           interactionStats,
           recentInteractions,

@@ -39,6 +39,12 @@ interface RecentInteraction {
   timestamp: string;
 }
 
+interface WorkflowStats {
+  totalWorkflowRuns: number;
+  totalNewArticlesSaved: number;
+  lastRunTime: string;
+}
+
 export function DashboardScreen() {
   const [topicAffinities, setTopicAffinities] = useState<TopicAffinity[]>([]);
   const [articleStats, setArticleStats] = useState<ArticleStats | null>(null);
@@ -47,6 +53,9 @@ export function DashboardScreen() {
   const [recentInteractions, setRecentInteractions] = useState<
     RecentInteraction[]
   >([]);
+  const [workflowStats, setWorkflowStats] = useState<WorkflowStats | null>(
+    null
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -108,6 +117,7 @@ export function DashboardScreen() {
         setArticleStats(result.data.articleStats || null);
         setInteractionStats(result.data.interactionStats || null);
         setRecentInteractions(result.data.recentInteractions || []);
+        setWorkflowStats(result.data.workflowStats || null);
       } else {
         setError(result.error || 'Failed to fetch dashboard data');
       }

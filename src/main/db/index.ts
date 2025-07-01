@@ -15,6 +15,7 @@ import {
   CREATE_INTERACTIONS_TABLE,
   CREATE_BRIEFINGS_TABLE,
   CREATE_BRIEFING_ARTICLES_TABLE,
+  CREATE_WORKFLOW_RUNS_TABLE,
 } from './schema';
 
 // Get the path to the user data directory
@@ -38,6 +39,7 @@ db.exec(CREATE_TOPIC_AFFINITIES_TABLE);
 db.exec(CREATE_INTERACTIONS_TABLE);
 db.exec(CREATE_BRIEFINGS_TABLE);
 db.exec(CREATE_BRIEFING_ARTICLES_TABLE);
+db.exec(CREATE_WORKFLOW_RUNS_TABLE);
 
 // Run migrations to add missing columns if they don't exist
 runMigrations();

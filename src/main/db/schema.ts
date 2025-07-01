@@ -87,3 +87,21 @@ export const CREATE_BRIEFING_ARTICLES_TABLE = `
     FOREIGN KEY (article_id) REFERENCES Articles (id) ON DELETE CASCADE
   );
 `;
+
+export const CREATE_WORKFLOW_RUNS_TABLE = `
+  CREATE TABLE IF NOT EXISTS WorkflowRuns (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    interests_count INTEGER DEFAULT 0,
+    search_results_count INTEGER DEFAULT 0,
+    curated_articles_count INTEGER DEFAULT 0,
+    duplicates_filtered_count INTEGER DEFAULT 0,
+    new_articles_saved_count INTEGER DEFAULT 0,
+    topics_extracted_count INTEGER DEFAULT 0,
+    articles_ranked_count INTEGER DEFAULT 0,
+    status TEXT DEFAULT 'completed' CHECK (status IN ('running', 'completed', 'failed')),
+    error_message TEXT,
+    started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP,
+    duration_ms INTEGER
+  );
+`;
