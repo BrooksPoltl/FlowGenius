@@ -1,9 +1,6 @@
 import { app, ipcMain } from 'electron';
 import { config } from 'dotenv';
 
-// Load environment variables from .env file
-config();
-
 import { makeAppWithSingleInstanceLock } from 'lib/electron-app/factories/app/instance';
 import { makeAppSetup } from 'lib/electron-app/factories/app/setup';
 import { MainWindow } from './windows/main';
@@ -14,6 +11,9 @@ import {
   deleteInterest,
 } from './services/settings';
 import { runNewsCuration } from './services/news_curator/graph';
+
+// Load environment variables from .env file
+config();
 
 makeAppWithSingleInstanceLock(async () => {
   await app.whenReady();

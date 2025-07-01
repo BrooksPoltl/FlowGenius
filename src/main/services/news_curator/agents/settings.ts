@@ -5,19 +5,13 @@
 
 import { getUserInterests } from '../../settings';
 
-export interface SettingsState {
-  interests: string[];
-  error?: string;
-}
-
 /**
  * SettingsAgent function that retrieves user interests from the database
- * @param state - Current state (can be empty for initial call)
+ * @param _state - Current state (can be empty for initial call)
  * @returns Updated state with user interests
  */
-export async function settingsAgent(
-  state: Partial<SettingsState> = {}
-): Promise<SettingsState> {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export async function settingsAgent(_state: any): Promise<any> {
   try {
     const interests = getUserInterests();
 
@@ -26,7 +20,6 @@ export async function settingsAgent(
     }
 
     return {
-      ...state,
       interests,
     };
   } catch (error) {
@@ -35,9 +28,14 @@ export async function settingsAgent(
     console.error('SettingsAgent error:', errorMessage);
 
     return {
-      ...state,
       interests: [],
       error: errorMessage,
     };
   }
+}
+
+// Legacy interface for backwards compatibility
+export interface SettingsState {
+  interests: string[];
+  error?: string;
 }

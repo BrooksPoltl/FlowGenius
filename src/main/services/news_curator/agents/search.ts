@@ -24,14 +24,13 @@ export interface SearchState extends SettingsState {
  * @param state - State containing user interests
  * @returns Updated state with fetched articles
  */
-export async function searchAgent(state: SettingsState): Promise<SearchState> {
+export async function searchAgent(state: any): Promise<any> {
   try {
     const { interests, error } = state;
 
     // If there was an error in previous agent, pass it through
     if (error) {
       return {
-        ...state,
         articles: [],
         searchErrors: [error],
       };
@@ -48,14 +47,16 @@ export async function searchAgent(state: SettingsState): Promise<SearchState> {
     // Search for articles for each interest with rate limiting (1 TPS)
     for (let i = 0; i < interests.length; i++) {
       const interest = interests[i];
-      
+
       try {
         // Add delay between requests to respect 1 TPS limit (except for first request)
         if (i > 0) {
           console.log(`Waiting 1 second before searching for "${interest}"...`);
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          await new Promise(resolve => {
+            setTimeout(resolve, 1000);
+          });
         }
-        
+
         console.log(`Searching for "${interest}"...`);
         const searchResults = await searchNewsForTopic(interest, braveApiKey);
         articles.push(...searchResults);
@@ -68,7 +69,6 @@ export async function searchAgent(state: SettingsState): Promise<SearchState> {
     }
 
     return {
-      ...state,
       articles,
       searchErrors: searchErrors.length > 0 ? searchErrors : undefined,
     };
@@ -80,7 +80,6 @@ export async function searchAgent(state: SettingsState): Promise<SearchState> {
     console.error('SearchAgent error:', errorMessage);
 
     return {
-      ...state,
       articles: [],
       searchErrors: [errorMessage],
     };
@@ -100,7 +99,7 @@ async function searchNewsForTopic(
   const searchUrl = 'https://api.search.brave.com/res/v1/news/search';
   const params = new URLSearchParams({
     q: topic,
-    count: '5', // Limit to 5 articles per topic
+    count: '10', // Limit to 10 articles per topic
     freshness: '1d', // Only articles from last day
     text_decorations: 'false',
     search_lang: 'en',

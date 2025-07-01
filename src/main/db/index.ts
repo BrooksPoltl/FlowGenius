@@ -29,21 +29,25 @@ console.log('Database initialized at:', dbPath);
 function runMigrations(): void {
   try {
     // Check if source column exists, if not add it
-    const columns = db.pragma('table_info(Articles)') as Array<{ name: string }>;
-    const columnNames = columns.map((col) => col.name);
-    
+    const columns = db.pragma('table_info(Articles)') as Array<{
+      name: string;
+    }>;
+    const columnNames = columns.map(col => col.name);
+
     if (!columnNames.includes('source')) {
       db.exec('ALTER TABLE Articles ADD COLUMN source TEXT');
       console.log('Added source column to Articles table');
     }
-    
+
     if (!columnNames.includes('thumbnail_url')) {
       db.exec('ALTER TABLE Articles ADD COLUMN thumbnail_url TEXT');
       console.log('Added thumbnail_url column to Articles table');
     }
-    
+
     if (!columnNames.includes('fetched_at')) {
-      db.exec('ALTER TABLE Articles ADD COLUMN fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP');
+      db.exec(
+        'ALTER TABLE Articles ADD COLUMN fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP'
+      );
       console.log('Added fetched_at column to Articles table');
     }
   } catch (error) {

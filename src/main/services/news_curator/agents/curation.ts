@@ -17,16 +17,13 @@ export interface CurationState extends SearchState {
  * @param state - State containing articles from SearchAgent
  * @returns Updated state with curated articles
  */
-export async function curationAgent(
-  state: SearchState
-): Promise<CurationState> {
+export async function curationAgent(state: any): Promise<any> {
   try {
     const { articles, searchErrors } = state;
 
     // If there were search errors, pass them through
     if (searchErrors && searchErrors.length > 0) {
       return {
-        ...state,
         curatedArticles: [],
         savedCount: 0,
         duplicateCount: 0,
@@ -35,7 +32,6 @@ export async function curationAgent(
 
     if (articles.length === 0) {
       return {
-        ...state,
         curatedArticles: [],
         savedCount: 0,
         duplicateCount: 0,
@@ -93,7 +89,6 @@ export async function curationAgent(
     );
 
     return {
-      ...state,
       curatedArticles,
       savedCount,
       duplicateCount,
@@ -106,7 +101,6 @@ export async function curationAgent(
     console.error('CurationAgent error:', errorMessage);
 
     return {
-      ...state,
       curatedArticles: [],
       savedCount: 0,
       duplicateCount: 0,
