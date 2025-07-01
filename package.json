@@ -34,6 +34,7 @@
   "dependencies": {
     "@langchain/core": "^0.3.61",
     "@langchain/langgraph": "^0.3.5",
+    "@langchain/openai": "^0.5.16",
     "better-sqlite3": "^11.8.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -44,7 +45,8 @@
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.2.0",
     "tailwind-merge": "^3.0.2",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "zod": "^3.25.67"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.0.9",

@@ -26,7 +26,7 @@ export interface SearchState extends SettingsState {
  */
 export async function searchAgent(state: any): Promise<any> {
   try {
-    const { interests, error } = state;
+    const { userInterests, error } = state;
 
     // If there was an error in previous agent, pass it through
     if (error) {
@@ -45,8 +45,8 @@ export async function searchAgent(state: any): Promise<any> {
     const searchErrors: string[] = [];
 
     // Search for articles for each interest with rate limiting (1 TPS)
-    for (let i = 0; i < interests.length; i++) {
-      const interest = interests[i];
+    for (let i = 0; i < userInterests.length; i++) {
+      const interest = userInterests[i];
 
       try {
         // Add delay between requests to respect 1 TPS limit (except for first request)
@@ -69,7 +69,8 @@ export async function searchAgent(state: any): Promise<any> {
     }
 
     return {
-      articles,
+      searchResults: articles,
+      searchComplete: true,
       searchErrors: searchErrors.length > 0 ? searchErrors : undefined,
     };
   } catch (error) {
@@ -80,9 +81,41 @@ export async function searchAgent(state: any): Promise<any> {
     console.error('SearchAgent error:', errorMessage);
 
     return {
-      articles: [],
+      searchResults: [],
+      searchComplete: false,
       searchErrors: [errorMessage],
     };
+  }
+}
+
+/**
+ * Formats the published date from Brave Search API
+ * @param age - The age string from Brave API (e.g., "2 hours ago", "1 day ago")
+ * @returns ISO date string or undefined
+ */
+function formatPublishedDate(age?: string): string | undefined {
+  if (!age) return undefined;
+
+  try {
+    // Brave API returns relative time like "2 hours ago", "1 day ago"
+    // Convert to approximate ISO date
+    const now = new Date();
+
+    if (age.includes('hour')) {
+      const hours = parseInt(age.match(/\d+/)?.[0] || '0', 10);
+      now.setHours(now.getHours() - hours);
+    } else if (age.includes('day')) {
+      const days = parseInt(age.match(/\d+/)?.[0] || '0', 10);
+      now.setDate(now.getDate() - days);
+    } else if (age.includes('minute')) {
+      const minutes = parseInt(age.match(/\d+/)?.[0] || '0', 10);
+      now.setMinutes(now.getMinutes() - minutes);
+    }
+
+    return now.toISOString();
+  } catch (error) {
+    console.warn('Failed to parse age:', age);
+    return undefined;
   }
 }
 
@@ -133,7 +166,7 @@ async function searchNewsForTopic(
       url: result.url || '',
       description: result.description || '',
       source: result.meta_url?.hostname || result.url || 'Unknown source',
-      published_at: result.age,
+      published_at: formatPublishedDate(result.age),
       thumbnail: result.thumbnail?.src,
     })
   );

@@ -1,5 +1,5 @@
 /**
- * InterestsModal Component - Manages user interests
+ * InterestsModal Component - Modal for managing user interests
  * Allows users to view, add, and delete their interests
  */
 
@@ -9,18 +9,95 @@ import { X, Plus, Trash2 } from 'lucide-react';
 interface InterestsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onInterestsUpdated?: () => void;
 }
 
-export function InterestsModal({
-  isOpen,
-  onClose,
-  onInterestsUpdated,
-}: InterestsModalProps) {
+export function InterestsModal({ isOpen, onClose }: InterestsModalProps) {
   const [interests, setInterests] = useState<string[]>([]);
   const [newInterest, setNewInterest] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  /**
+   * Loads interests from the backend
+   */
+  const loadInterests = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const result = await window.electronAPI.getInterests();
+
+      if (result.success) {
+        setInterests(result.data || []);
+      } else {
+        setError(result.error || 'Failed to load interests');
+      }
+    } catch (err) {
+      console.error('Error loading interests:', err);
+      setError('Failed to load interests');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /**
+   * Adds a new interest
+   */
+  const handleAddInterest = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const trimmedInterest = newInterest.trim();
+    if (!trimmedInterest) return;
+
+    if (interests.includes(trimmedInterest)) {
+      setError('Interest already exists');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const result = await window.electronAPI.addInterest(trimmedInterest);
+
+      if (result.success) {
+        setInterests([...interests, trimmedInterest]);
+        setNewInterest('');
+      } else {
+        setError(result.error || 'Failed to add interest');
+      }
+    } catch (err) {
+      console.error('Error adding interest:', err);
+      setError('Failed to add interest');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /**
+   * Deletes an interest
+   */
+  const handleDeleteInterest = async (interestToDelete: string) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const result = await window.electronAPI.deleteInterest(interestToDelete);
+
+      if (result.success) {
+        setInterests(
+          interests.filter(interest => interest !== interestToDelete)
+        );
+      } else {
+        setError(result.error || 'Failed to delete interest');
+      }
+    } catch (err) {
+      console.error('Error deleting interest:', err);
+      setError('Failed to delete interest');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Load interests when modal opens
   useEffect(() => {
@@ -29,64 +106,13 @@ export function InterestsModal({
     }
   }, [isOpen]);
 
-  const loadInterests = async () => {
-    try {
-      setLoading(true);
+  // Clear error when modal closes
+  useEffect(() => {
+    if (!isOpen) {
       setError(null);
-      const userInterests = await window.App.getInterests();
-      setInterests(userInterests);
-    } catch (err) {
-      setError('Failed to load interests');
-      console.error('Error loading interests:', err);
-    } finally {
-      setLoading(false);
+      setNewInterest('');
     }
-  };
-
-  const handleAddInterest = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!newInterest.trim()) return;
-
-    try {
-      setError(null);
-      const success = await window.App.addInterest(newInterest.trim());
-
-      if (success) {
-        setNewInterest('');
-        await loadInterests(); // Reload the list
-        onInterestsUpdated?.();
-      } else {
-        setError('Interest already exists or could not be added');
-      }
-    } catch (err) {
-      setError('Failed to add interest');
-      console.error('Error adding interest:', err);
-    }
-  };
-
-  const handleDeleteInterest = async (topic: string) => {
-    try {
-      setError(null);
-      const success = await window.App.deleteInterest(topic);
-
-      if (success) {
-        await loadInterests(); // Reload the list
-        onInterestsUpdated?.();
-      } else {
-        setError('Failed to delete interest');
-      }
-    } catch (err) {
-      setError('Failed to delete interest');
-      console.error('Error deleting interest:', err);
-    }
-  };
-
-  const handleClose = () => {
-    setNewInterest('');
-    setError(null);
-    onClose();
-  };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -99,7 +125,7 @@ export function InterestsModal({
             Manage Interests
           </h2>
           <button
-            onClick={handleClose}
+            onClick={onClose}
             className="text-gray-400 hover:text-gray-600 transition-colors"
           >
             <X size={24} />
@@ -108,21 +134,28 @@ export function InterestsModal({
 
         {/* Content */}
         <div className="p-6">
-          {/* Add new interest form */}
+          {/* Error Message */}
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+              <p className="text-red-800 text-sm">{error}</p>
+            </div>
+          )}
+
+          {/* Add Interest Form */}
           <form onSubmit={handleAddInterest} className="mb-6">
             <div className="flex gap-2">
               <input
                 type="text"
                 value={newInterest}
                 onChange={e => setNewInterest(e.target.value)}
-                placeholder="Add new interest..."
+                placeholder="Enter a new interest..."
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                maxLength={50}
+                disabled={isLoading}
               />
               <button
                 type="submit"
-                disabled={!newInterest.trim()}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                disabled={isLoading || !newInterest.trim()}
+                className="flex items-center gap-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
               >
                 <Plus size={16} />
                 Add
@@ -130,62 +163,51 @@ export function InterestsModal({
             </div>
           </form>
 
-          {/* Error message */}
-          {error && (
-            <div className="mb-4 p-3 bg-red-100 border border-red-300 text-red-700 rounded-md text-sm">
-              {error}
-            </div>
-          )}
+          {/* Interests List */}
+          <div>
+            <h3 className="text-sm font-medium text-gray-900 mb-3">
+              Your Interests ({interests.length})
+            </h3>
 
-          {/* Loading state */}
-          {loading && (
-            <div className="text-center py-4">
-              <div className="text-gray-500">Loading interests...</div>
-            </div>
-          )}
+            {isLoading && interests.length === 0 && (
+              <div className="text-center py-4 text-gray-500">Loading...</div>
+            )}
 
-          {/* Interests list */}
-          {!loading && (
-            <div>
-              <h3 className="text-sm font-medium text-gray-700 mb-3">
-                Current Interests ({interests.length})
-              </h3>
+            {!isLoading && interests.length === 0 && (
+              <div className="text-center py-4 text-gray-500">
+                No interests added yet. Add your first interest above!
+              </div>
+            )}
 
-              {interests.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  No interests added yet. Add some topics you&apos;d like to
-                  follow!
-                </div>
-              ) : (
-                <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {interests.map(interest => (
-                    <div
-                      key={interest}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-md"
+            {interests.length > 0 && (
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {interests.map(interest => (
+                  <div
+                    key={interest}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-md"
+                  >
+                    <span className="text-gray-900">{interest}</span>
+                    <button
+                      onClick={() => handleDeleteInterest(interest)}
+                      disabled={isLoading}
+                      className="text-red-500 hover:text-red-700 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors"
                     >
-                      <span className="text-gray-900">{interest}</span>
-                      <button
-                        onClick={() => handleDeleteInterest(interest)}
-                        className="text-red-500 hover:text-red-700 transition-colors p-1"
-                        title={`Delete ${interest}`}
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t bg-gray-50 rounded-b-lg">
+        <div className="flex justify-end p-6 border-t bg-gray-50">
           <button
-            onClick={handleClose}
-            className="w-full px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
+            onClick={onClose}
+            className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
           >
-            Close
+            Done
           </button>
         </div>
       </div>

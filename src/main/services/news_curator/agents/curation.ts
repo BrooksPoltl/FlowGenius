@@ -19,22 +19,25 @@ export interface CurationState extends SearchState {
  */
 export async function curationAgent(state: any): Promise<any> {
   try {
-    const { articles, searchErrors } = state;
+    const { searchResults, searchErrors } = state;
+    const articles = searchResults || [];
 
     // If there were search errors, pass them through
     if (searchErrors && searchErrors.length > 0) {
       return {
         curatedArticles: [],
-        savedCount: 0,
-        duplicateCount: 0,
+        curationComplete: true,
+        duplicatesFiltered: 0,
+        newArticlesSaved: 0,
       };
     }
 
-    if (articles.length === 0) {
+    if (!articles || articles.length === 0) {
       return {
         curatedArticles: [],
-        savedCount: 0,
-        duplicateCount: 0,
+        curationComplete: true,
+        duplicatesFiltered: 0,
+        newArticlesSaved: 0,
       };
     }
 
@@ -90,8 +93,9 @@ export async function curationAgent(state: any): Promise<any> {
 
     return {
       curatedArticles,
-      savedCount,
-      duplicateCount,
+      curationComplete: true,
+      duplicatesFiltered: duplicateCount,
+      newArticlesSaved: savedCount,
     };
   } catch (error) {
     const errorMessage =
@@ -102,9 +106,10 @@ export async function curationAgent(state: any): Promise<any> {
 
     return {
       curatedArticles: [],
-      savedCount: 0,
-      duplicateCount: 0,
-      searchErrors: [...(state.searchErrors || []), errorMessage],
+      curationComplete: false,
+      duplicatesFiltered: 0,
+      newArticlesSaved: 0,
+      error: errorMessage,
     };
   }
 }

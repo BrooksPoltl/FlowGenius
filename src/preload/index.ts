@@ -2,7 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 
 declare global {
   interface Window {
-    App: typeof API;
+    electronAPI: typeof API;
   }
 }
 
@@ -12,12 +12,23 @@ const API = {
 
   // Interests management
   getInterests: () => ipcRenderer.invoke('get-interests'),
-  addInterest: (topic: string) => ipcRenderer.invoke('add-interest', topic),
-  deleteInterest: (topic: string) =>
-    ipcRenderer.invoke('delete-interest', topic),
+  addInterest: (interest: string) =>
+    ipcRenderer.invoke('add-interest', interest),
+  deleteInterest: (interest: string) =>
+    ipcRenderer.invoke('delete-interest', interest),
 
   // News curation
   getDailyNews: () => ipcRenderer.invoke('get-daily-news'),
+
+  // User interactions for personalization
+  handleInteraction: (
+    articleUrl: string,
+    interactionType: 'like' | 'dislike' | 'click'
+  ) => ipcRenderer.invoke('handle-interaction', articleUrl, interactionType),
 };
 
-contextBridge.exposeInMainWorld('App', API);
+// Expose the API to the renderer process
+contextBridge.exposeInMainWorld('electronAPI', API);
+
+// Export the type for TypeScript
+export type ElectronAPI = typeof API;

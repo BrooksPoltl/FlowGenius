@@ -4,11 +4,26 @@
  */
 
 import Database from 'better-sqlite3';
-import path from 'node:path';
+import path from 'path';
 import { app } from 'electron';
-import { CREATE_ARTICLES_TABLE, CREATE_INTERESTS_TABLE } from './schema';
+import {
+  CREATE_INTERESTS_TABLE,
+  CREATE_ARTICLES_TABLE,
+  CREATE_TOPICS_TABLE,
+  CREATE_ARTICLE_TOPICS_TABLE,
+  CREATE_TOPIC_AFFINITIES_TABLE,
+  CREATE_INTERACTIONS_TABLE,
+  CREATE_BRIEFINGS_TABLE,
+  CREATE_BRIEFING_ARTICLES_TABLE,
+} from './schema';
 
-const dbPath = path.join(app.getPath('userData'), 'app_database.db');
+// Get the path to the user data directory
+const userDataPath = app.getPath('userData');
+const dbPath = path.join(userDataPath, 'app_database.db');
+
+console.log('Database path:', dbPath);
+
+// Create the database connection
 const db = new Database(dbPath);
 
 // Enable WAL mode for better concurrency
@@ -17,6 +32,12 @@ db.pragma('journal_mode = WAL');
 // Create tables if they don't exist
 db.exec(CREATE_INTERESTS_TABLE);
 db.exec(CREATE_ARTICLES_TABLE);
+db.exec(CREATE_TOPICS_TABLE);
+db.exec(CREATE_ARTICLE_TOPICS_TABLE);
+db.exec(CREATE_TOPIC_AFFINITIES_TABLE);
+db.exec(CREATE_INTERACTIONS_TABLE);
+db.exec(CREATE_BRIEFINGS_TABLE);
+db.exec(CREATE_BRIEFING_ARTICLES_TABLE);
 
 // Run migrations to add missing columns if they don't exist
 runMigrations();
@@ -28,7 +49,7 @@ console.log('Database initialized at:', dbPath);
  */
 function runMigrations(): void {
   try {
-    // Check if source column exists, if not add it
+    // Check if personalization_score column exists, if not add it
     const columns = db.pragma('table_info(Articles)') as Array<{
       name: string;
     }>;
@@ -45,10 +66,37 @@ function runMigrations(): void {
     }
 
     if (!columnNames.includes('fetched_at')) {
-      db.exec(
-        'ALTER TABLE Articles ADD COLUMN fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP'
-      );
+      db.exec('ALTER TABLE Articles ADD COLUMN fetched_at TIMESTAMP');
       console.log('Added fetched_at column to Articles table');
+    }
+
+    if (!columnNames.includes('personalization_score')) {
+      db.exec(
+        'ALTER TABLE Articles ADD COLUMN personalization_score REAL DEFAULT 0.0'
+      );
+      console.log('Added personalization_score column to Articles table');
+    }
+
+    // Check if Interests table needs to be updated (topic -> name)
+    const interestsColumns = db.pragma('table_info(Interests)') as Array<{
+      name: string;
+    }>;
+    const interestsColumnNames = interestsColumns.map(col => col.name);
+
+    if (
+      interestsColumnNames.includes('topic') &&
+      !interestsColumnNames.includes('name')
+    ) {
+      // Rename topic column to name
+      db.exec(`
+        ALTER TABLE Interests RENAME COLUMN topic TO name;
+      `);
+      console.log('Renamed topic column to name in Interests table');
+    }
+
+    if (!interestsColumnNames.includes('created_at')) {
+      db.exec('ALTER TABLE Interests ADD COLUMN created_at TIMESTAMP');
+      console.log('Added created_at column to Interests table');
     }
   } catch (error) {
     console.error('Error running migrations:', error);

@@ -20,7 +20,8 @@ export async function settingsAgent(_state: any): Promise<any> {
     }
 
     return {
-      interests,
+      userInterests: interests,
+      settingsLoaded: true,
     };
   } catch (error) {
     const errorMessage =
@@ -28,7 +29,8 @@ export async function settingsAgent(_state: any): Promise<any> {
     console.error('SettingsAgent error:', errorMessage);
 
     return {
-      interests: [],
+      userInterests: [],
+      settingsLoaded: false,
       error: errorMessage,
     };
   }

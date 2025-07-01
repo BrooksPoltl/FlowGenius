@@ -1,79 +1,73 @@
 /**
- * Settings service for managing user interests and preferences
- * Handles initialization, seeding default interests, and CRUD operations
+ * Settings Service - Manages user interests and preferences
+ * Handles CRUD operations for user interests stored in the database
  */
 
 import db from '../db';
 
-const DEFAULT_INTERESTS = [
-  'Artificial Intelligence',
-  'Technology',
-  'Finance',
-  'Software Engineering',
-  'Startups',
-  'Healthcare',
-  'Space Technology',
-];
-
 /**
- * Initializes the settings service and ensures default data exists
- * This should be called on app startup
+ * Initializes default settings and seeds default interests if none exist
  */
 export function initializeSettings(): void {
-  seedDefaultInterests();
-}
+  try {
+    const existingInterests = getUserInterests();
 
-/**
- * Seeds the database with default interests if none exist
- */
-export function seedDefaultInterests(): void {
-  const count = db.prepare('SELECT COUNT(*) as count FROM Interests').get() as {
-    count: number;
-  };
+    if (existingInterests.length === 0) {
+      console.log('No interests found. Seeding default interests...');
 
-  if (count.count === 0) {
-    const insertInterest = db.prepare(
-      'INSERT INTO Interests (topic) VALUES (?)'
-    );
+      const defaultInterests = [
+        'Artificial Intelligence',
+        'Technology',
+        'Finance',
+        'Software Engineering',
+        'Startups',
+        'Healthcare',
+        'Space Technology',
+      ];
 
-    for (const topic of DEFAULT_INTERESTS) {
-      insertInterest.run(topic);
+      const insertStmt = db.prepare(
+        "INSERT INTO Interests (name, created_at) VALUES (?, datetime('now'))"
+      );
+      const insertMany = db.transaction((interests: string[]) => {
+        for (const interest of interests) {
+          insertStmt.run(interest);
+        }
+      });
+
+      insertMany(defaultInterests);
+      console.log('Default interests seeded successfully');
     }
-
-    console.log('Default interests seeded successfully');
+  } catch (error) {
+    console.error('Error initializing settings:', error);
   }
 }
 
 /**
  * Retrieves all user interests from the database
- * @returns Array of topic strings
+ * @returns Array of interest strings
  */
 export function getUserInterests(): string[] {
-  const interests = db.prepare('SELECT topic FROM Interests').all() as {
-    topic: string;
-  }[];
-  return interests.map(interest => interest.topic);
+  try {
+    const stmt = db.prepare('SELECT name FROM Interests ORDER BY name');
+    const rows = stmt.all() as Array<{ name: string }>;
+    return rows.map(row => row.name);
+  } catch (error) {
+    console.error('Error getting user interests:', error);
+    return [];
+  }
 }
 
 /**
  * Adds a new interest to the database
- * @param topic - The topic to add
+ * @param interest - The interest to add
  * @returns boolean indicating success
  */
-export function addInterest(topic: string): boolean {
+export function addInterest(interest: string): boolean {
   try {
-    // Check if topic already exists
-    const existing = db
-      .prepare('SELECT id FROM Interests WHERE topic = ?')
-      .get(topic);
-    if (existing) {
-      return false; // Topic already exists
-    }
-
-    const insertInterest = db.prepare(
-      'INSERT INTO Interests (topic) VALUES (?)'
+    const stmt = db.prepare(
+      "INSERT INTO Interests (name, created_at) VALUES (?, datetime('now'))"
     );
-    insertInterest.run(topic);
+    stmt.run(interest);
     return true;
   } catch (error) {
     console.error('Error adding interest:', error);
@@ -83,13 +77,13 @@ export function addInterest(topic: string): boolean {
 
 /**
  * Removes an interest from the database
- * @param topic - The topic to remove
+ * @param interest - The interest to remove
  * @returns boolean indicating success
  */
-export function deleteInterest(topic: string): boolean {
+export function deleteInterest(interest: string): boolean {
   try {
-    const deleteInterest = db.prepare('DELETE FROM Interests WHERE topic = ?');
-    const result = deleteInterest.run(topic);
+    const stmt = db.prepare('DELETE FROM Interests WHERE name = ?');
+    const result = stmt.run(interest);
     return result.changes > 0;
   } catch (error) {
     console.error('Error deleting interest:', error);

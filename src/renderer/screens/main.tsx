@@ -1,122 +1,187 @@
-import { Newspaper, Settings, RefreshCw } from 'lucide-react';
-import { useState } from 'react';
+/**
+ * Main Screen - Primary interface for the News Curator application
+ * Displays personalized news articles and provides interest management
+ */
 
-import { ArticleCard, Article } from 'renderer/components/ui/ArticleCard';
-import { InterestsModal } from 'renderer/components/InterestsModal';
+import React, { useState } from 'react';
+import { Settings, RefreshCw, TrendingUp } from 'lucide-react';
+import { ArticleCard, Article } from '../components/ui/ArticleCard';
+import { InterestsModal } from '../components/InterestsModal';
 
-// The "App" comes from the context bridge in preload/index.ts
-const { App } = window;
+interface NewsStats {
+  interests: number;
+  searchResults: number;
+  curatedArticles: number;
+  duplicatesFiltered: number;
+  newArticlesSaved: number;
+  topicsExtracted: number;
+  articlesRanked: number;
+}
 
 export function MainScreen() {
   const [articles, setArticles] = useState<Article[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [stats, setStats] = useState<NewsStats | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isInterestsModalOpen, setIsInterestsModalOpen] = useState(false);
-  const [newsStats, setNewsStats] = useState<{
-    savedCount: number;
-    duplicateCount: number;
-  } | null>(null);
 
-  const handleGetNews = async () => {
+  /**
+   * Fetches the latest personalized news
+   */
+  const fetchNews = async () => {
+    setIsLoading(true);
+    setError(null);
+
     try {
-      setLoading(true);
-      setError(null);
+      const result = await window.electronAPI.getDailyNews();
 
-      console.log('Fetching daily news...');
-      const response = await App.getDailyNews();
+      if (result.success && result.data) {
+        // Map the database articles to our Article interface
+        const mappedArticles: Article[] = result.data.articles.map(
+          (article: any) => ({
+            title: article.title,
+            url: article.url,
+            description: article.description || '',
+            source: article.source || 'Unknown',
+            published_at: article.published_at,
+            thumbnail: article.thumbnail_url,
+            personalizationScore: article.personalization_score,
+          })
+        );
 
-      if (response.success) {
-        setArticles(response.articles);
-        setNewsStats({
-          savedCount: response.savedCount,
-          duplicateCount: response.duplicateCount,
-        });
-
-        if (response.errors && response.errors.length > 0) {
-          console.warn('Some search errors occurred:', response.errors);
-        }
+        setArticles(mappedArticles);
+        setStats(result.data.stats);
       } else {
-        setError(response.error || 'Failed to fetch news');
+        setError(result.error || 'Failed to fetch news');
       }
     } catch (err) {
-      setError('Failed to fetch news. Please try again.');
       console.error('Error fetching news:', err);
+      setError('An unexpected error occurred');
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  const handleInterestsUpdated = () => {
-    // Clear current articles when interests are updated
-    setArticles([]);
-    setNewsStats(null);
-  };
+  // News is now loaded manually via the "Get Latest News" button
+  // No automatic loading to avoid unnecessary API calls
 
   return (
-    <main className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-white shadow-sm border-b">
-        <div className="max-w-4xl mx-auto px-6 py-4">
+        <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Newspaper className="text-blue-600" size={32} />
-              <h1 className="text-2xl font-bold text-gray-900">
-                FlowGenius News
-              </h1>
+            <div className="flex items-center space-x-3">
+              <TrendingUp className="h-8 w-8 text-blue-600" />
+              <h1 className="text-2xl font-bold text-gray-900">FlowGenius</h1>
+              <span className="text-sm text-gray-500">Personalized News</span>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center space-x-3">
               <button
                 onClick={() => setIsInterestsModalOpen(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                className="flex items-center space-x-2 px-4 py-2 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
               >
-                <Settings size={18} />
-                Manage Interests
+                <Settings size={20} />
+                <span>Manage Interests</span>
               </button>
 
               <button
-                onClick={handleGetNews}
-                disabled={loading}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors"
+                onClick={fetchNews}
+                disabled={isLoading}
+                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 <RefreshCw
-                  size={18}
-                  className={loading ? 'animate-spin' : ''}
+                  size={20}
+                  className={isLoading ? 'animate-spin' : ''}
                 />
-                {loading ? 'Fetching...' : 'Get Latest News'}
+                <span>{isLoading ? 'Loading...' : 'Get Latest News'}</span>
               </button>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Content */}
-      <div className="max-w-4xl mx-auto px-6 py-8">
-        {/* Stats */}
-        {newsStats && (
-          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-blue-800 text-sm">
-              Found {newsStats.savedCount} new articles
-              {newsStats.duplicateCount > 0 &&
-                ` (${newsStats.duplicateCount} duplicates skipped)`}
-            </p>
+      {/* Stats Bar */}
+      {stats && (
+        <div className="bg-blue-50 border-b">
+          <div className="max-w-7xl mx-auto px-4 py-3">
+            <div className="flex items-center justify-center space-x-8 text-sm">
+              <div className="flex items-center space-x-1">
+                <span className="font-medium text-blue-900">
+                  {stats.interests}
+                </span>
+                <span className="text-blue-700">interests</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <span className="font-medium text-blue-900">
+                  {stats.curatedArticles}
+                </span>
+                <span className="text-blue-700">articles found</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <span className="font-medium text-blue-900">
+                  {stats.newArticlesSaved}
+                </span>
+                <span className="text-blue-700">new articles</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <span className="font-medium text-blue-900">
+                  {stats.topicsExtracted}
+                </span>
+                <span className="text-blue-700">topics extracted</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <span className="font-medium text-blue-900">
+                  {stats.articlesRanked}
+                </span>
+                <span className="text-blue-700">articles ranked</span>
+              </div>
+            </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Error */}
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 py-8">
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-red-800 text-sm">{error}</p>
+            <p className="text-red-800">{error}</p>
           </div>
         )}
 
-        {/* Articles */}
-        {articles.length > 0 ? (
-          <div>
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">
-              Latest News ({articles.length} articles)
-            </h2>
-            <div className="space-y-4">
+        {articles.length === 0 && !isLoading && !error && (
+          <div className="text-center py-12">
+            <TrendingUp className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              No articles yet
+            </h3>
+            <p className="text-gray-600 mb-4">
+              Click &quot;Get Latest News&quot; to fetch personalized articles
+              based on your interests.
+            </p>
+            <button
+              onClick={fetchNews}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Get Started
+            </button>
+          </div>
+        )}
+
+        {/* Articles Grid */}
+        {articles.length > 0 && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-gray-900">
+                Your Personalized News ({articles.length} articles)
+              </h2>
+              <div className="text-sm text-gray-500">
+                Sorted by relevance score
+              </div>
+            </div>
+
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {articles.map((article, index) => (
                 <ArticleCard
                   key={`${article.url}-${index}`}
@@ -125,34 +190,14 @@ export function MainScreen() {
               ))}
             </div>
           </div>
-        ) : (
-          !loading && (
-            <div className="text-center py-12">
-              <Newspaper className="mx-auto text-gray-400 mb-4" size={48} />
-              <h2 className="text-xl font-semibold text-gray-600 mb-2">
-                No articles yet
-              </h2>
-              <p className="text-gray-500 mb-6">
-                Click &quot;Get Latest News&quot; to fetch articles based on
-                your interests.
-              </p>
-              <button
-                onClick={() => setIsInterestsModalOpen(true)}
-                className="text-blue-600 hover:text-blue-700 underline"
-              >
-                Manage your interests first
-              </button>
-            </div>
-          )
         )}
-      </div>
+      </main>
 
       {/* Interests Modal */}
       <InterestsModal
         isOpen={isInterestsModalOpen}
         onClose={() => setIsInterestsModalOpen(false)}
-        onInterestsUpdated={handleInterestsUpdated}
       />
-    </main>
+    </div>
   );
 }

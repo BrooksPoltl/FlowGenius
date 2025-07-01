@@ -1,88 +1,123 @@
 /**
- * News Curator Workflow - Orchestrates the news curation workflow using LangGraph
- * Connects SettingsAgent -> SearchAgent -> CurationAgent
+ * News Curator LangGraph Implementation
+ * Orchestrates the news curation workflow using LangGraph state management
  */
-import { StateGraph, Annotation, START, END } from '@langchain/langgraph';
 
+import { Annotation, StateGraph, START, END } from '@langchain/langgraph';
 import { settingsAgent } from './agents/settings';
-import { searchAgent, Article } from './agents/search';
+import { searchAgent } from './agents/search';
 import { curationAgent } from './agents/curation';
+import { topicExtractorAgent } from './agents/topic_extractor';
+import { rankingAgent } from './agents/ranking';
 
-/**
- * Define the state schema for the news curation graph
- * This represents the data that flows through the entire workflow
- */
-const NewsStateAnnotation = Annotation.Root({
-  // User interests from database
-  interests: Annotation<string[]>({
-    value: (x: string[], y: string[]) => y,
-    default: () => [],
+// Define the state schema using Annotation.Root()
+const NewsCuratorState = Annotation.Root({
+  // Settings phase
+  userInterests: Annotation<string[]>({
+    reducer: (current, update) => update ?? current,
   }),
-  // Raw articles from search
-  articles: Annotation<Article[]>({
-    value: (x: Article[], y: Article[]) => y,
-    default: () => [],
+  settingsLoaded: Annotation<boolean>({
+    reducer: (current, update) => update ?? current,
   }),
-  // Curated articles after deduplication and saving
-  curatedArticles: Annotation<Article[]>({
-    value: (x: Article[], y: Article[]) => y,
-    default: () => [],
+
+  // Search phase
+  searchResults: Annotation<any[]>({
+    reducer: (current, update) => update ?? current,
   }),
-  // Statistics
-  savedCount: Annotation<number>({
-    value: (x: number, y: number) => y,
-    default: () => 0,
+  searchComplete: Annotation<boolean>({
+    reducer: (current, update) => update ?? current,
   }),
-  duplicateCount: Annotation<number>({
-    value: (x: number, y: number) => y,
-    default: () => 0,
+
+  // Curation phase
+  curatedArticles: Annotation<any[]>({
+    reducer: (current, update) => update ?? current,
   }),
+  curationComplete: Annotation<boolean>({
+    reducer: (current, update) => update ?? current,
+  }),
+  duplicatesFiltered: Annotation<number>({
+    reducer: (current, update) => update ?? current,
+  }),
+  newArticlesSaved: Annotation<number>({
+    reducer: (current, update) => update ?? current,
+  }),
+
+  // Topic extraction phase
+  topicsExtracted: Annotation<boolean>({
+    reducer: (current, update) => update ?? current,
+  }),
+  topicsExtractedCount: Annotation<number>({
+    reducer: (current, update) => update ?? current,
+  }),
+
+  // Ranking phase
+  articlesRanked: Annotation<boolean>({
+    reducer: (current, update) => update ?? current,
+  }),
+  rankedCount: Annotation<number>({
+    reducer: (current, update) => update ?? current,
+  }),
+
   // Error handling
-  error: Annotation<string | undefined>({
-    value: (x: string | undefined, y: string | undefined) => y,
-    default: () => undefined,
-  }),
-  searchErrors: Annotation<string[] | undefined>({
-    value: (x: string[] | undefined, y: string[] | undefined) => y,
-    default: () => undefined,
+  error: Annotation<string>({
+    reducer: (current, update) => update ?? current,
   }),
 });
 
-// Create the StateGraph
-const newsGraph = new StateGraph(NewsStateAnnotation)
+// Create the state graph
+const workflow = new StateGraph(NewsCuratorState)
   .addNode('settings', settingsAgent)
   .addNode('search', searchAgent)
   .addNode('curate', curationAgent)
+  .addNode('extract_topics', topicExtractorAgent)
+  .addNode('rank', rankingAgent)
   .addEdge(START, 'settings')
   .addEdge('settings', 'search')
   .addEdge('search', 'curate')
-  .addEdge('curate', END);
+  .addEdge('curate', 'extract_topics')
+  .addEdge('extract_topics', 'rank')
+  .addEdge('rank', END);
 
 // Compile the graph
-const compiledGraph = newsGraph.compile();
+export const newsCuratorGraph = workflow.compile();
 
 /**
- * Runs the complete news curation workflow using LangGraph
- * @returns Final state with curated articles
+ * Runs the complete news curation workflow
+ * @returns Promise with the final state containing all results
  */
-export async function runNewsCuration() {
+export async function runNewsCuration(): Promise<any> {
   try {
-    console.log('Starting news curation workflow with LangGraph...');
+    console.log('Starting news curation workflow...');
 
-    // Invoke the compiled graph with empty initial state
-    const finalState = await compiledGraph.invoke({});
-
-    console.log('News curation workflow completed.');
-    console.log(
-      `Results: ${finalState.savedCount} new articles, ${finalState.duplicateCount} duplicates`
-    );
-
-    return {
-      curatedArticles: finalState.curatedArticles,
-      savedCount: finalState.savedCount,
-      duplicateCount: finalState.duplicateCount,
-      searchErrors: finalState.searchErrors || [],
+    const initialState = {
+      userInterests: [],
+      settingsLoaded: false,
+      searchResults: [],
+      searchComplete: false,
+      curatedArticles: [],
+      curationComplete: false,
+      duplicatesFiltered: 0,
+      newArticlesSaved: 0,
+      topicsExtracted: false,
+      topicsExtractedCount: 0,
+      articlesRanked: false,
+      rankedCount: 0,
     };
+
+    const result = await newsCuratorGraph.invoke(initialState);
+
+    console.log('News curation workflow completed successfully');
+    console.log('Final stats:', {
+      interests: result.userInterests?.length || 0,
+      searchResults: result.searchResults?.length || 0,
+      curatedArticles: result.curatedArticles?.length || 0,
+      duplicatesFiltered: result.duplicatesFiltered || 0,
+      newArticlesSaved: result.newArticlesSaved || 0,
+      topicsExtracted: result.topicsExtractedCount || 0,
+      articlesRanked: result.rankedCount || 0,
+    });
+
+    return result;
   } catch (error) {
     console.error('Error in news curation workflow:', error);
     throw error;
