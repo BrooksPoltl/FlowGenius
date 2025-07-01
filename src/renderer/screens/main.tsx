@@ -18,11 +18,27 @@ interface NewsStats {
   articlesRanked: number;
 }
 
-export function MainScreen() {
-  const [articles, setArticles] = useState<Article[]>([]);
-  const [stats, setStats] = useState<NewsStats | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+interface MainScreenProps {
+  articles: Article[];
+  setArticles: React.Dispatch<React.SetStateAction<Article[]>>;
+  stats: NewsStats | null;
+  setStats: React.Dispatch<React.SetStateAction<NewsStats | null>>;
+  isLoading: boolean;
+  setIsLoading: React.Dispatch<React.SetStateAction<boolean>>;
+  error: string | null;
+  setError: React.Dispatch<React.SetStateAction<string | null>>;
+}
+
+export function MainScreen({
+  articles,
+  setArticles,
+  stats,
+  setStats,
+  isLoading,
+  setIsLoading,
+  error,
+  setError,
+}: MainScreenProps) {
   const [isInterestsModalOpen, setIsInterestsModalOpen] = useState(false);
 
   /**

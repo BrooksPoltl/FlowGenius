@@ -1,6 +1,7 @@
 /**
  * MainApp - Main application component with internal navigation
  * Handles navigation between news and dashboard screens
+ * Manages shared state to persist across screen switches
  */
 
 import React, { useState } from 'react';
@@ -8,11 +9,28 @@ import { TrendingUp, BarChart3 } from 'lucide-react';
 
 import { MainScreen } from '../screens/main';
 import { DashboardScreen } from '../screens/dashboard';
+import { Article } from './ui/ArticleCard';
 
 type AppScreen = 'news' | 'dashboard';
 
+interface NewsStats {
+  interests: number;
+  searchResults: number;
+  curatedArticles: number;
+  duplicatesFiltered: number;
+  newArticlesSaved: number;
+  topicsExtracted: number;
+  articlesRanked: number;
+}
+
 export function MainApp() {
   const [currentScreen, setCurrentScreen] = useState<AppScreen>('news');
+
+  // Shared state that persists across screen navigation
+  const [articles, setArticles] = useState<Article[]>([]);
+  const [stats, setStats] = useState<NewsStats | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -58,7 +76,18 @@ export function MainApp() {
 
       {/* Content */}
       <main>
-        {currentScreen === 'news' && <MainScreen />}
+        {currentScreen === 'news' && (
+          <MainScreen
+            articles={articles}
+            setArticles={setArticles}
+            stats={stats}
+            setStats={setStats}
+            isLoading={isLoading}
+            setIsLoading={setIsLoading}
+            error={error}
+            setError={setError}
+          />
+        )}
         {currentScreen === 'dashboard' && <DashboardScreen />}
       </main>
     </div>
