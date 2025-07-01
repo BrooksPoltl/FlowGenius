@@ -22,8 +22,17 @@ export async function MainWindow() {
 
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: false,
     },
   });
+
+  // Add debug logging for preload script
+  console.log(
+    '🔧 Preload script path:',
+    join(__dirname, '../preload/index.js')
+  );
 
   window.webContents.on('did-finish-load', () => {
     if (ENVIRONMENT.IS_DEV) {

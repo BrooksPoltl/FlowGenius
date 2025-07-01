@@ -66,15 +66,15 @@ export function MainScreen() {
   // No automatic loading to avoid unnecessary API calls
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
+    <div>
+      {/* Action Bar */}
+      <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <TrendingUp className="h-8 w-8 text-blue-600" />
-              <h1 className="text-2xl font-bold text-gray-900">FlowGenius</h1>
-              <span className="text-sm text-gray-500">Personalized News</span>
+              <h2 className="text-xl font-semibold text-gray-900">
+                Personalized News
+              </h2>
             </div>
 
             <div className="flex items-center space-x-3">
@@ -100,7 +100,7 @@ export function MainScreen() {
             </div>
           </div>
         </div>
-      </header>
+      </div>
 
       {/* Stats Bar */}
       {stats && (

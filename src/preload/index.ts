@@ -1,4 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
+import os from 'os';
+
+console.log('🔧 Preload script starting...');
 
 declare global {
   interface Window {
@@ -7,8 +10,10 @@ declare global {
 }
 
 const API = {
-  sayHelloFromBridge: () => console.log('\nHello from bridgeAPI! 👋\n\n'),
-  username: process.env.USER,
+  sayHelloFromBridge: () => {
+    console.log('Hello from the bridge!');
+  },
+  username: os.userInfo().username,
 
   // Interests management
   getInterests: () => ipcRenderer.invoke('get-interests'),
@@ -25,10 +30,29 @@ const API = {
     articleUrl: string,
     interactionType: 'like' | 'dislike' | 'click'
   ) => ipcRenderer.invoke('handle-interaction', articleUrl, interactionType),
+
+  // Dashboard analytics
+  getDashboardData: () => {
+    console.log('🔧 getDashboardData called from preload');
+    return ipcRenderer.invoke('get-dashboard-data');
+  },
 };
 
-// Expose the API to the renderer process
-contextBridge.exposeInMainWorld('electronAPI', API);
+console.log('🔧 API object created:', Object.keys(API));
+
+try {
+  // Expose the API to the renderer process
+  contextBridge.exposeInMainWorld('electronAPI', API);
+  console.log('🔧 electronAPI exposed to main world successfully');
+} catch (error) {
+  console.error('🔧 Error exposing electronAPI:', error);
+}
+
+// Also try to set it directly as a fallback (for debugging)
+if (typeof window !== 'undefined') {
+  (window as any).electronAPI = API;
+  console.log('🔧 electronAPI set directly on window as fallback');
+}
 
 // Export the type for TypeScript
 export type ElectronAPI = typeof API;

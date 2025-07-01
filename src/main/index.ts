@@ -174,4 +174,102 @@ function setupNewsIPC(): void {
       }
     }
   );
+
+  // IPC Handler for Dashboard Analytics Data
+  ipcMain.handle('get-dashboard-data', async () => {
+    try {
+      console.log('📊 Fetching dashboard analytics data...');
+
+      // Get topic affinities
+      const topicAffinities = db
+        .prepare(
+          `
+          SELECT t.name as topicName, ta.affinity_score as affinityScore, ta.interaction_count as interactionCount
+          FROM TopicAffinities ta
+          JOIN Topics t ON ta.topic_id = t.id
+          ORDER BY ta.affinity_score DESC
+        `
+        )
+        .all();
+
+      // Get article statistics
+      const articleStats = db
+        .prepare(
+          `
+          SELECT 
+            COUNT(*) as totalArticles,
+            COUNT(*) - COUNT(DISTINCT url) as duplicatesFiltered,
+            COUNT(DISTINCT url) as uniqueArticles
+          FROM Articles
+        `
+        )
+        .get() as {
+        totalArticles: number;
+        duplicatesFiltered: number;
+        uniqueArticles: number;
+      };
+
+      // Get topics count
+      const topicsCount = db
+        .prepare('SELECT COUNT(*) as count FROM Topics')
+        .get() as { count: number };
+
+      // Get interaction statistics
+      const interactionStats = db
+        .prepare(
+          `
+          SELECT 
+            COUNT(*) as totalInteractions,
+            SUM(CASE WHEN interaction_type = 'like' THEN 1 ELSE 0 END) as totalLikes,
+            SUM(CASE WHEN interaction_type = 'dislike' THEN 1 ELSE 0 END) as totalDislikes,
+            SUM(CASE WHEN interaction_type = 'click' THEN 1 ELSE 0 END) as totalClicks
+          FROM Interactions
+        `
+        )
+        .get() as {
+        totalInteractions: number;
+        totalLikes: number;
+        totalDislikes: number;
+        totalClicks: number;
+      };
+
+      // Get recent interactions
+      const recentInteractions = db
+        .prepare(
+          `
+          SELECT 
+            a.title as articleTitle,
+            i.interaction_type as interactionType,
+            i.created_at as timestamp
+          FROM Interactions i
+          JOIN Articles a ON i.article_id = a.id
+          ORDER BY i.created_at DESC
+          LIMIT 20
+        `
+        )
+        .all();
+
+      return {
+        success: true,
+        data: {
+          topicAffinities,
+          articleStats: {
+            ...articleStats,
+            topicsExtracted: topicsCount.count,
+          },
+          interactionStats,
+          recentInteractions,
+        },
+      };
+    } catch (error) {
+      console.error('Error getting dashboard data:', error);
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Failed to get dashboard data',
+      };
+    }
+  });
 }

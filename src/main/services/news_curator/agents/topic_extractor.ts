@@ -95,11 +95,13 @@ export async function topicExtractorAgent(state: any): Promise<any> {
 - Specific domains (e.g., Artificial Intelligence, Climate Change, Cryptocurrency)
 - Industry sectors (e.g., Healthcare, Finance, Energy)
 
+IMPORTANT: Only extract broad, well-known topics that would be useful for news categorization. Avoid overly specific or niche topics.
+
 Article Title: ${article.title}
 Article Description: ${article.description}
 Source: ${article.source}
 
-Extract 3-5 most relevant topics with their relevance scores.`;
+Extract 2-4 most relevant topics with their relevance scores.`;
 
         // Extract topics using OpenAI
         const response = await structuredLlm.invoke(prompt);
@@ -142,6 +144,15 @@ Extract 3-5 most relevant topics with their relevance scores.`;
     console.log(
       `Topic extraction complete: ${totalTopicsExtracted} topic associations created`
     );
+
+    // Check total topic count and warn if getting high
+    const totalTopicsStmt = db.prepare('SELECT COUNT(*) as count FROM Topics');
+    const totalTopics = (totalTopicsStmt.get() as { count: number }).count;
+
+    console.log(`Total topics in database: ${totalTopics}`);
+    if (totalTopics > 500) {
+      console.warn('⚠️  Topic count is getting high. Consider topic cleanup.');
+    }
 
     return {
       topicsExtracted: true,
