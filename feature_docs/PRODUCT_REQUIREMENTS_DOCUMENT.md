@@ -87,6 +87,7 @@ This workflow runs periodically and asynchronously in the background to make the
 *   **Executive Summary**: Display an AI-generated summary at the top of each daily briefing by implementing the `SummarizerAgent` using the Brave Search API.
 *   **Audio Briefing**: Add a "Listen to Briefing" button that uses a Text-to-Speech (TTS) API to generate an audio version of the executive summary.
 *   **Deep Dive Agent**: An on-demand research agent triggered from an article, which performs a new, in-depth search on the article's topic to provide more context.
+*   **Liked Articles View**: Create a dedicated screen or filter that allows users to view all articles they have liked across all briefings, providing a personal collection of favorite content.
 
 ## 8. Success Metrics
 
