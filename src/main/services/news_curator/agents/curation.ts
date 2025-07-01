@@ -45,6 +45,15 @@ export async function curationAgent(state: any): Promise<any> {
     let savedCount = 0;
     let duplicateCount = 0;
 
+    // Check total articles before processing
+    const countBefore = db
+      .prepare('SELECT COUNT(*) as count FROM Articles')
+      .get() as { count: number };
+    console.log(
+      `📊 Articles in database before processing: ${countBefore.count}`
+    );
+    console.log(`📊 Articles to process: ${articles.length}`);
+
     // Prepare database statements
     const checkExisting = db.prepare('SELECT id FROM Articles WHERE url = ?');
     const insertArticle = db.prepare(`
@@ -61,14 +70,21 @@ export async function curationAgent(state: any): Promise<any> {
           continue;
         }
 
+        console.log(
+          `🔍 Checking article: "${article.title}" - URL: ${article.url}`
+        );
+
         // Check if article already exists
         const existing = checkExisting.get(article.url);
+        console.log(`🔍 Existing check result:`, existing);
 
         if (existing) {
           duplicateCount++;
-          console.log(`Duplicate article found: ${article.title}`);
+          console.log(`🔄 Duplicate article found: ${article.title}`);
           continue;
         }
+
+        console.log(`✅ New article, saving: ${article.title}`);
 
         // Save new article to database
         insertArticle.run(
@@ -86,6 +102,17 @@ export async function curationAgent(state: any): Promise<any> {
         console.error(`Error processing article "${article.title}":`, error);
       }
     }
+
+    // Check total articles after processing
+    const countAfter = db
+      .prepare('SELECT COUNT(*) as count FROM Articles')
+      .get() as { count: number };
+    console.log(
+      `📊 Articles in database after processing: ${countAfter.count}`
+    );
+    console.log(
+      `📊 Expected change: +${savedCount}, Actual change: +${countAfter.count - countBefore.count}`
+    );
 
     console.log(
       `Curation complete: ${savedCount} new articles saved, ${duplicateCount} duplicates skipped`

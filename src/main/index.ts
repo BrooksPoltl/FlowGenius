@@ -87,17 +87,32 @@ function setupNewsIPC(): void {
       const result = await runNewsCuration();
       console.log('✅ News curation completed successfully');
 
-      // Get articles sorted by personalization score
-      const articles = db
-        .prepare(
+      // Get the newly curated articles with their personalization scores
+      const curatedArticles = result.curatedArticles || [];
+      let articles: any[] = [];
+
+      if (curatedArticles.length > 0) {
+        // Create a prepared statement to get personalization scores for the new articles
+        const placeholders = curatedArticles.map(() => '?').join(',');
+        const urls = curatedArticles.map((article: any) => article.url);
+
+        articles = db
+          .prepare(
+            `
+            SELECT url, title, description, source, published_at, thumbnail_url, personalization_score
+            FROM Articles 
+            WHERE url IN (${placeholders})
+            ORDER BY personalization_score DESC, fetched_at DESC
           `
-        SELECT url, title, description, source, published_at, thumbnail_url, personalization_score
-        FROM Articles 
-        ORDER BY personalization_score DESC, fetched_at DESC
-        LIMIT 50
-      `
-        )
-        .all();
+          )
+          .all(...urls);
+
+        console.log(
+          `📊 Returning ${articles.length} newly curated articles (out of ${curatedArticles.length} processed)`
+        );
+      } else {
+        console.log('📊 No new articles were curated in this run');
+      }
 
       return {
         success: true,

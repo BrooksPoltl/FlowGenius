@@ -115,15 +115,21 @@ export function MainScreen() {
               </div>
               <div className="flex items-center space-x-1">
                 <span className="font-medium text-blue-900">
-                  {stats.curatedArticles}
+                  {stats.searchResults}
                 </span>
-                <span className="text-blue-700">articles found</span>
+                <span className="text-blue-700">articles searched</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <span className="font-medium text-blue-900">
+                  {stats.duplicatesFiltered}
+                </span>
+                <span className="text-blue-700">duplicates filtered</span>
               </div>
               <div className="flex items-center space-x-1">
                 <span className="font-medium text-blue-900">
                   {stats.newArticlesSaved}
                 </span>
-                <span className="text-blue-700">new articles</span>
+                <span className="text-blue-700">new articles saved</span>
               </div>
               <div className="flex items-center space-x-1">
                 <span className="font-medium text-blue-900">
