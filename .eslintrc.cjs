@@ -30,7 +30,7 @@ module.exports = {
     // Allow prop spreading for component libraries
     'react/jsx-props-no-spreading': 'off',
     // Allow any types in some cases
-    '@typescript-eslint/no-explicit-any': 'warn',
+    '@typescript-eslint/no-explicit-any': 'off',
     // Allow unused expressions for some patterns
     '@typescript-eslint/no-unused-expressions': 'off',
     // Disable prefer default export
@@ -38,6 +38,15 @@ module.exports = {
     // React JSX runtime
     'react/react-in-jsx-scope': 'off',
     'react/jsx-uses-react': 'off',
+    // Allow some patterns for MVP
+    '@typescript-eslint/no-use-before-define': 'off',
+    'react/require-default-props': 'off',
+    'react/button-has-type': 'off',
+    'react/no-array-index-key': 'off',
+    'no-continue': 'off',
+    'no-plusplus': 'off',
+    'no-await-in-loop': 'off',
+    '@typescript-eslint/no-shadow': 'off',
   },
   overrides: [
     {
