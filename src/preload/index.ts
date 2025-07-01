@@ -41,6 +41,10 @@ const API = {
   getBriefingsList: () => ipcRenderer.invoke('get-briefings-list'),
   getBriefingArticles: (briefingId: number) =>
     ipcRenderer.invoke('get-briefing-articles', briefingId),
+
+  // Article interactions
+  getArticleInteractions: (articleUrls: string[]) =>
+    ipcRenderer.invoke('get-article-interactions', articleUrls),
 };
 
 console.log('🔧 API object created:', Object.keys(API));

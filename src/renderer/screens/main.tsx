@@ -3,7 +3,7 @@
  * Displays personalized news articles and provides interest management
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Settings, RefreshCw, TrendingUp } from 'lucide-react';
 import { ArticleCard, Article } from '../components/ui/ArticleCard';
 import { InterestsModal } from '../components/InterestsModal';
@@ -38,6 +38,28 @@ export function MainScreen({
   setError,
 }: MainScreenProps) {
   const [isInterestsModalOpen, setIsInterestsModalOpen] = useState(false);
+  const [articleInteractions, setArticleInteractions] = useState<Record<string, { type: 'like' | 'dislike' | 'click' }>>({});
+
+  /**
+   * Loads interaction states for the current articles
+   */
+  const loadArticleInteractions = async (articleList: Article[]) => {
+    if (articleList.length === 0) {
+      setArticleInteractions({});
+      return;
+    }
+
+    try {
+      const urls = articleList.map(article => article.url);
+      const result = await window.electronAPI.getArticleInteractions(urls);
+
+      if (result.success && result.data) {
+        setArticleInteractions(result.data);
+      }
+    } catch (error) {
+      console.error('Error loading article interactions:', error);
+    }
+  };
 
   /**
    * Fetches the latest personalized news
@@ -65,6 +87,9 @@ export function MainScreen({
 
         setArticles(mappedArticles);
         setStats(result.data.stats);
+        
+        // Load interaction states for the new articles
+        await loadArticleInteractions(mappedArticles);
       } else {
         setError(result.error || 'Failed to fetch news');
       }
@@ -75,6 +100,13 @@ export function MainScreen({
       setIsLoading(false);
     }
   };
+
+  // Load interactions when articles change (from history sidebar or other sources)
+  useEffect(() => {
+    if (articles.length > 0) {
+      loadArticleInteractions(articles);
+    }
+  }, [articles]);
 
   // News is now loaded manually via the "Get Latest News" button
   // No automatic loading to avoid unnecessary API calls
@@ -160,6 +192,7 @@ export function MainScreen({
                 <ArticleCard
                   key={`${article.url}-${index}`}
                   article={article}
+                  initialInteractionState={articleInteractions[article.url]?.type || null}
                 />
               ))}
             </div>

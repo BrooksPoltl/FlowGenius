@@ -26,6 +26,9 @@ declare global {
       // Briefings history
       getBriefingsList: () => Promise<any>;
       getBriefingArticles: (briefingId: number) => Promise<any>;
+
+      // Article interactions
+      getArticleInteractions: (articleUrls: string[]) => Promise<any>;
     };
   }
 }

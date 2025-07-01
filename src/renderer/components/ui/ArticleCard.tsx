@@ -3,7 +3,7 @@
  * Shows article title, source, description, and optional thumbnail
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ThumbsUp, ThumbsDown, ExternalLink } from 'lucide-react';
 
 export interface Article {
@@ -18,16 +18,31 @@ export interface Article {
 
 interface ArticleCardProps {
   article: Article;
+  initialInteractionState?: 'like' | 'dislike' | 'click' | null;
 }
 
 /**
  * ArticleCard component that displays a news article with interaction buttons
  * Supports like, dislike, and click-through tracking for personalization
  */
-export function ArticleCard({ article }: ArticleCardProps) {
+export function ArticleCard({ article, initialInteractionState }: ArticleCardProps) {
   const [isLiked, setIsLiked] = useState(false);
   const [isDisliked, setIsDisliked] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Set initial interaction state when component mounts or props change
+  useEffect(() => {
+    if (initialInteractionState === 'like') {
+      setIsLiked(true);
+      setIsDisliked(false);
+    } else if (initialInteractionState === 'dislike') {
+      setIsLiked(false);
+      setIsDisliked(true);
+    } else {
+      setIsLiked(false);
+      setIsDisliked(false);
+    }
+  }, [initialInteractionState]);
 
   /**
    * Handles article click-through and tracks interaction

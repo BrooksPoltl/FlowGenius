@@ -455,4 +455,62 @@ function setupNewsIPC(): void {
       };
     }
   });
+
+  // IPC Handler for Article Interactions
+  console.log('🔗 Registering get-article-interactions IPC handler...');
+  ipcMain.handle('get-article-interactions', async (_, articleUrls: string[]) => {
+    try {
+      console.log(`🔍 Fetching interactions for ${articleUrls.length} articles...`);
+
+      if (articleUrls.length === 0) {
+        return { success: true, data: {} };
+      }
+
+      const placeholders = articleUrls.map(() => '?').join(',');
+      const interactions = db
+        .prepare(
+          `
+          SELECT a.url, i.interaction_type, i.created_at
+          FROM Articles a
+          JOIN Interactions i ON a.id = i.article_id
+          WHERE a.url IN (${placeholders})
+          ORDER BY i.created_at DESC
+        `
+        )
+        .all(...articleUrls);
+
+      // Group interactions by URL, keeping only the most recent like/dislike
+      const interactionMap: Record<string, { type: 'like' | 'dislike' | 'click'; timestamp: string }> = {};
+      
+      for (const interaction of interactions as Array<{url: string; interaction_type: string; created_at: string}>) {
+        const url = interaction.url;
+        const type = interaction.interaction_type;
+        
+        // For like/dislike, keep only the most recent one
+        if (type === 'like' || type === 'dislike') {
+          if (!interactionMap[url] || interactionMap[url].type === 'click') {
+            interactionMap[url] = { type: type as 'like' | 'dislike', timestamp: interaction.created_at };
+          }
+        }
+        // For clicks, only set if no interaction exists yet
+        else if (type === 'click' && !interactionMap[url]) {
+          interactionMap[url] = { type: 'click', timestamp: interaction.created_at };
+        }
+      }
+
+      return {
+        success: true,
+        data: interactionMap,
+      };
+    } catch (error) {
+      console.error('Error getting article interactions:', error);
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Failed to get article interactions',
+      };
+    }
+  });
 }
