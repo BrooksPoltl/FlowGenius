@@ -1,4 +1,4 @@
-import { createElectronRouter } from 'electron-router-dom'
+import { createElectronRouter } from 'electron-router-dom';
 
 export const { Router, registerRoute, settings } = createElectronRouter({
   port: 4927,
@@ -6,4 +6,4 @@ export const { Router, registerRoute, settings } = createElectronRouter({
   types: {
     ids: ['main', 'about'],
   },
-})
+});

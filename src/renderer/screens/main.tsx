@@ -1,22 +1,22 @@
-import { Terminal } from 'lucide-react'
-import { useEffect } from 'react'
+import { Terminal } from 'lucide-react';
+import { useEffect } from 'react';
 
 import {
   Alert,
   AlertTitle,
   AlertDescription,
-} from 'renderer/components/ui/alert'
+} from 'renderer/components/ui/alert';
 
 // The "App" comes from the context bridge in preload/index.ts
-const { App } = window
+const { App } = window;
 
 export function MainScreen() {
   useEffect(() => {
     // check the console on dev tools
-    App.sayHelloFromBridge()
-  }, [])
+    App.sayHelloFromBridge();
+  }, []);
 
-  const userName = App.username || 'there'
+  const userName = App.username || 'there';
 
   return (
     <main className="flex flex-col items-center justify-center h-screen bg-black">
@@ -29,10 +29,10 @@ export function MainScreen() {
           <Terminal className="size-6 text-fuchsia-300" />
 
           <span className="text-gray-400">
-            It's time to build something awesome!
+            It&apos;s time to build something awesome!
           </span>
         </AlertDescription>
       </Alert>
     </main>
-  )
+  );
 }

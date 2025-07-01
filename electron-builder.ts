@@ -1,4 +1,4 @@
-import type { Configuration } from 'electron-builder'
+import type { Configuration } from 'electron-builder';
 
 import {
   main,
@@ -8,16 +8,16 @@ import {
   description,
   displayName,
   author as _author,
-} from './package.json'
+} from './package.json';
 
-import { getDevFolder } from './src/lib/electron-app/release/utils/path'
+import { getDevFolder } from './src/lib/electron-app/release/utils/path';
 
-const author = _author?.name ?? _author
-const currentYear = new Date().getFullYear()
-const authorInKebabCase = author.replace(/\s+/g, '-')
-const appId = `com.${authorInKebabCase}.${name}`.toLowerCase()
+const author = _author?.name ?? _author;
+const currentYear = new Date().getFullYear();
+const authorInKebabCase = author.replace(/\s+/g, '-');
+const appId = `com.${authorInKebabCase}.${name}`.toLowerCase();
 
-const artifactName = [`${name}-v${version}`, '-${os}.${ext}'].join('')
+const artifactName = `${name}-v${version}-\${os}.\${ext}`;
 
 export default {
   appId,
@@ -48,4 +48,4 @@ export default {
     icon: `${resources}/build/icons/icon.ico`,
     target: ['zip', 'portable'],
   },
-} satisfies Configuration
+} satisfies Configuration;

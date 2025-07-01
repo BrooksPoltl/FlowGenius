@@ -1,8 +1,8 @@
-import { author as _author, name } from '~/package.json'
+import { author as _author, name } from '~/package.json';
 
-const author = _author.name ?? _author
-const authorInKebabCase = author.replace(/\s+/g, '-')
-const appId = `com.${authorInKebabCase}.${name}`.toLowerCase()
+const author = _author.name ?? _author;
+const authorInKebabCase = author.replace(/\s+/g, '-');
+const appId = `com.${authorInKebabCase}.${name}`.toLowerCase();
 
 /**
  * @param {string} id
@@ -13,5 +13,5 @@ const appId = `com.${authorInKebabCase}.${name}`.toLowerCase()
  * // => 'com.example.app'
  */
 export function makeAppId(id: string = appId): string {
-  return id
+  return id;
 }

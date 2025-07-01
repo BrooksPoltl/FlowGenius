@@ -10,4 +10,4 @@ export const COLORS = {
   MAGENTA: '\x1b[35m',
   LIGHT_GRAY: '\x1b[37m',
   SOFT_GRAY: '\x1b[38;5;244m',
-}
+};

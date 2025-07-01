@@ -1,12 +1,12 @@
 import {
   execSync,
   type ExecSyncOptionsWithStringEncoding,
-} from 'node:child_process'
+} from 'node:child_process';
 
-import { resolve } from 'node:path'
+import { resolve } from 'node:path';
 
 interface Options {
-  inherit?: boolean
+  inherit?: boolean;
 }
 
 function makeOptions(
@@ -16,16 +16,16 @@ function makeOptions(
     stdio: options?.inherit ? 'inherit' : 'pipe',
     cwd: resolve(),
     encoding: 'utf8',
-  }
+  };
 }
 
 export function exec(commands: string[], options?: Options) {
-  const outputs = []
+  const outputs = [];
 
   for (const command of commands) {
-    const output = execSync(command, makeOptions(options)) as string
-    outputs.push(output)
+    const output = execSync(command, makeOptions(options)) as string;
+    outputs.push(output);
   }
 
-  return outputs
+  return outputs;
 }

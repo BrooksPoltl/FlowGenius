@@ -1,5 +1,5 @@
 export function ignoreConsoleWarnings(warningsToIgnore: string[]) {
-  const originalEmitWarning = process.emitWarning
+  const originalEmitWarning = process.emitWarning;
 
   process.emitWarning = (warning, ...args) => {
     if (
@@ -7,9 +7,9 @@ export function ignoreConsoleWarnings(warningsToIgnore: string[]) {
       warningsToIgnore.length > 0 &&
       warningsToIgnore.some(ignoredWarning => warning.includes(ignoredWarning))
     ) {
-      return
+      return;
     }
 
-    originalEmitWarning(warning, ...(args as string[]))
-  }
+    originalEmitWarning(warning, ...(args as string[]));
+  };
 }
