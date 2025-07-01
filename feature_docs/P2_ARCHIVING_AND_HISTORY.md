@@ -1,0 +1,13 @@
+# P2: Archiving & History Implementation Plan
+
+This feature introduces a collapsible sidebar to view historical news briefings.
+
+| Priority | Task Description | Implementation Details | Code Pointers | Dependencies | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **P2** | **Backend: Archiving Logic** | In the `get-daily-news` IPC handler, after a successful workflow run, create a new entry in the `Briefings` table. The title will be the current date (e.g., "August 1, 2024"). Then, for each newly saved article, create a corresponding entry in the `Briefing_Articles` table to link it to the new briefing. | `src/main/index.ts` | - | ⬜️ To Do |
+| **P2** | **Backend: IPC for History** | Create two new IPC handlers: <br> 1. `get-briefings-list`: Fetches all briefings (`id`, `title`, `created_at`) to populate the sidebar. <br> 2. `get-briefing-articles`: Takes a `briefing_id` and returns all associated articles for that historical run. | `src/main/index.ts` <br/> `src/preload/index.ts` <br/> `index.d.ts` | Archiving Logic | ⬜️ To Do |
+| **P2** | **Frontend: Update Main Layout** | Modify the `MainApp` component to support a two-column layout with a collapsible left sidebar (open by default). Add a state and a toggle button to manage the sidebar's visibility. | `src/renderer/components/MainApp.tsx` | - | ⬜️ To Do |
+| **P2** | **Frontend: History Sidebar** | Create a new `HistorySidebar` component. This component will call `get-briefings-list` on mount, display the list of dated briefings, and handle loading/error states. | `src/renderer/components/HistorySidebar.tsx` (new file) | IPC for History | ⬜️ To Do |
+| **P2** | **Frontend: Load Past Briefings**| In `HistorySidebar`, make each briefing item clickable. On click, it will call the `get-briefing-articles` IPC handler and update the shared `articles` state in `MainApp` to display the historical articles. |`src/renderer/components/HistorySidebar.tsx` <br/> `src/renderer/components/MainApp.tsx` | History Sidebar | ⬜️ To Do |
+| **P2** | **Frontend: Remove Stats Bar**| As requested, remove the top statistics bar (`NewsStats`) from the `MainScreen` component to simplify the UI, since this data is available in the Analytics dashboard. | `src/renderer/screens/main.tsx` | - | ⬜️ To Do |
+| **P2** | **PRD: Update Documentation** | Add a note to the "Stretch Goals" in the PRD about creating a dedicated view for users to see all of their liked articles in one place. | `feature_docs/PRODUCT_REQUIREMENTS_DOCUMENT.md` | - | ⬜️ To Do | 
