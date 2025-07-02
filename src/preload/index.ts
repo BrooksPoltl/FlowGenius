@@ -69,6 +69,10 @@ const API = {
   },
 
   getSummaryStats: () => ipcRenderer.invoke('get-summary-stats'),
+
+  // Refresh operations
+  forceRefresh: () => ipcRenderer.invoke('force-refresh'),
+  getCooldownStatus: () => ipcRenderer.invoke('get-cooldown-status'),
 };
 
 console.log('🔧 API object created:', Object.keys(API));

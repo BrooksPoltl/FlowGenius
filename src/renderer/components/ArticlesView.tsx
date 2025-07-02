@@ -32,6 +32,10 @@ export function ArticlesView({ onBriefingChange }: ArticlesViewProps) {
     null
   );
   const [generatingSummary, setGeneratingSummary] = useState(false);
+  const [cooldownStatus, setCooldownStatus] = useState<{
+    scheduled: string[];
+    cooledDown: string[];
+  } | null>(null);
 
   /**
    * Load latest articles from the current briefing
@@ -176,16 +180,82 @@ export function ArticlesView({ onBriefingChange }: ArticlesViewProps) {
   }, [onBriefingChange]);
 
   /**
+   * Check cooldown status for user interests
+   */
+  const checkCooldownStatus = useCallback(async () => {
+    try {
+      const result = await window.electronAPI.getCooldownStatus();
+      if (result.success && result.data) {
+        setCooldownStatus(result.data);
+      }
+    } catch (error) {
+      console.error('Error checking cooldown status:', error);
+    }
+  }, []);
+
+  /**
    * Trigger news curation workflow
    */
   const handleCurateNews = async () => {
     setLoading(true);
+    setError(null);
     try {
-      await window.electronAPI.curateNews();
-      // Reload articles after curation
-      await loadArticles();
+      console.log('🔄 [RENDERER] Starting news curation...');
+
+      // Check cooldown status before starting
+      await checkCooldownStatus();
+
+      const result = await window.electronAPI.curateNews();
+      console.log('🔄 [RENDERER] Curation result:', result);
+
+      if (result.success) {
+        // Reload articles after curation
+        await loadArticles();
+
+        // Check if any new articles were found
+        if (result.data && result.data.newArticlesSaved === 0) {
+          setError(
+            'No new articles found. Your interests might be on cooldown or all articles were duplicates.'
+          );
+        }
+      } else {
+        setError(result.error || 'Failed to curate news');
+      }
     } catch (error) {
-      console.error('Error curating news:', error);
+      console.error('🔄 [RENDERER] Error curating news:', error);
+      setError('Failed to curate news');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Force refresh that bypasses cooldown periods
+   */
+  const handleForceRefresh = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      console.log('🔄 [RENDERER] Starting force refresh...');
+      const result = await window.electronAPI.forceRefresh();
+      console.log('🔄 [RENDERER] Force refresh result:', result);
+
+      if (result.success) {
+        await loadArticles();
+        // Reset cooldown status since we bypassed it
+        setCooldownStatus({ scheduled: [], cooledDown: [] });
+
+        if (result.data && result.data.newArticlesSaved === 0) {
+          setError(
+            'No new articles found even with force refresh. This may indicate API issues or no new content is available.'
+          );
+        }
+      } else {
+        setError(result.error || 'Failed to force refresh');
+      }
+    } catch (error) {
+      console.error('🔄 [RENDERER] Error with force refresh:', error);
+      setError('Failed to force refresh');
     } finally {
       setLoading(false);
     }
@@ -223,11 +293,12 @@ export function ArticlesView({ onBriefingChange }: ArticlesViewProps) {
     }
   };
 
-  // Load articles on component mount
+  // Load articles on component mount and check cooldown status
   useEffect(() => {
     console.log('🔍 [RENDERER] useEffect triggered, calling loadArticles...');
     loadArticles();
-  }, [loadArticles]);
+    checkCooldownStatus();
+  }, [loadArticles, checkCooldownStatus]);
 
   // Add a simple test to verify IPC is working
   useEffect(() => {
@@ -366,6 +437,28 @@ export function ArticlesView({ onBriefingChange }: ArticlesViewProps) {
                 Last updated: {new Date(lastUpdated).toLocaleString()}
               </p>
             )}
+
+            {/* Cooldown Status Indicator */}
+            {cooldownStatus && (
+              <div className="mt-2 flex items-center space-x-4 text-sm">
+                {cooldownStatus.scheduled.length > 0 && (
+                  <div className="flex items-center space-x-1">
+                    <div className="w-2 h-2 bg-green-500 rounded-full" />
+                    <span className="text-green-700">
+                      {cooldownStatus.scheduled.length} interests ready
+                    </span>
+                  </div>
+                )}
+                {cooldownStatus.cooledDown.length > 0 && (
+                  <div className="flex items-center space-x-1">
+                    <div className="w-2 h-2 bg-orange-500 rounded-full" />
+                    <span className="text-orange-700">
+                      {cooldownStatus.cooledDown.length} on cooldown
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <div className="flex space-x-3">
             <button
@@ -390,10 +483,22 @@ export function ArticlesView({ onBriefingChange }: ArticlesViewProps) {
               {loading ? (
                 <>
                   <div className="animate-spin -ml-1 mr-3 h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
-                  Curating...
+                  Refreshing...
                 </>
               ) : (
                 'Refresh'
+              )}
+            </button>
+            <button
+              onClick={handleForceRefresh}
+              disabled={loading}
+              className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+              title="Force refresh bypasses cooldown periods and searches all interests"
+            >
+              {loading ? (
+                <div className="animate-spin -ml-1 mr-2 h-4 w-4 border-2 border-gray-600 border-t-transparent rounded-full" />
+              ) : (
+                'Force'
               )}
             </button>
           </div>

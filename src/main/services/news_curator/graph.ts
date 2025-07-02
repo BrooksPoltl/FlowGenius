@@ -373,12 +373,24 @@ async function saveBriefingToDatabase(
   topics: string[],
   articles: Article[]
 ): Promise<number> {
+  // Generate a title for the briefing
+  const date = new Date().toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+  const title = `Daily Briefing - ${date}`;
+
   const stmt = db.prepare(`
-    INSERT INTO Briefings (topics_json, articles_json)
-    VALUES (?, ?)
+    INSERT INTO Briefings (title, topics_json, articles_json)
+    VALUES (?, ?, ?)
   `);
 
-  const result = stmt.run(JSON.stringify(topics), JSON.stringify(articles));
+  const result = stmt.run(
+    title,
+    JSON.stringify(topics),
+    JSON.stringify(articles)
+  );
   return result.lastInsertRowid as number;
 }
 

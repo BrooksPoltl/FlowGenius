@@ -163,6 +163,73 @@ function setupNewsIPC(): void {
     }
   });
 
+  // Force refresh (bypasses cooldown periods)
+  ipcMain.handle('force-refresh', async () => {
+    try {
+      console.log('🔄 Starting force refresh (bypassing cooldowns)...');
+
+      // Reset all interest search attempt times to allow immediate refresh
+      const resetSearchAttempts = db.prepare(`
+        UPDATE Interests 
+        SET last_search_attempt_at = NULL
+      `);
+      const resetResult = resetSearchAttempts.run();
+      console.log(
+        `🔄 Reset search attempts for ${resetResult.changes} interests`
+      );
+
+      const { executeNewsCurationWorkflow } = await import(
+        './services/news_curator/graph'
+      );
+      const result = await executeNewsCurationWorkflow();
+      console.log('✅ Force refresh completed successfully');
+
+      return { success: true, data: result };
+    } catch (error) {
+      console.error('Error with force refresh:', error);
+      return {
+        success: false,
+        error:
+          error instanceof Error ? error.message : 'Failed to force refresh',
+      };
+    }
+  });
+
+  // Get cooldown status for interests
+  ipcMain.handle('get-cooldown-status', async () => {
+    try {
+      console.log('📊 Checking cooldown status for interests...');
+
+      const { interestSchedulerAgent } = await import(
+        './services/news_curator/agents/scheduler'
+      );
+      const { getUserInterests } = await import('./services/settings');
+
+      const userInterests = getUserInterests();
+      const schedulerResult = await interestSchedulerAgent({
+        userInterests,
+        settingsLoaded: true,
+      });
+
+      return {
+        success: true,
+        data: {
+          scheduled: schedulerResult.scheduledInterests || [],
+          cooledDown: schedulerResult.cooledDownInterests || [],
+        },
+      };
+    } catch (error) {
+      console.error('Error checking cooldown status:', error);
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Failed to check cooldown status',
+      };
+    }
+  });
+
   // Record article interaction
   ipcMain.handle(
     'record-article-interaction',
