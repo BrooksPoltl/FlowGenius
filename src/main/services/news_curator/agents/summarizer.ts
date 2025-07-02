@@ -419,7 +419,7 @@ Return as JSON with fields: title, subtitle
       subtitle: 'The stories that matter to you, curated just for you.',
       mainStories,
       quickBites,
-      images: this.extractImages([], originalArticles),
+      images: SummarizerAgent.extractImages([], originalArticles),
       citations: this.generateCitations(originalArticles),
       generatedAt: new Date().toISOString(),
     };

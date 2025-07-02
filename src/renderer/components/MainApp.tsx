@@ -5,12 +5,13 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, BarChart3, Menu, X } from 'lucide-react';
+import { TrendingUp, BarChart3, Menu, X, Settings } from 'lucide-react';
 
 import { DashboardScreen } from '../screens/dashboard';
 import { HistorySidebar } from './HistorySidebar';
 import { ArticlesView } from './ArticlesView';
 import { SummaryView } from './SummaryView';
+import { InterestsModal } from './InterestsModal';
 import { Article } from './ui/ArticleCard';
 
 type AppScreen = 'news' | 'dashboard';
@@ -25,6 +26,7 @@ export function MainApp() {
     null
   );
   const [summaryReady, setSummaryReady] = useState(false);
+  const [isInterestsModalOpen, setIsInterestsModalOpen] = useState(false);
 
   // Shared state that persists across screen navigation
   const [isLoading, setIsLoading] = useState(false);
@@ -73,7 +75,7 @@ export function MainApp() {
             </div>
 
             {/* Navigation Links */}
-            <div className="flex space-x-1">
+            <div className="flex items-center space-x-1">
               <button
                 onClick={() => setCurrentScreen('news')}
                 className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
@@ -96,6 +98,16 @@ export function MainApp() {
               >
                 <BarChart3 size={20} />
                 <span>Analytics</span>
+              </button>
+
+              {/* Settings/Interests Button */}
+              <button
+                onClick={() => setIsInterestsModalOpen(true)}
+                className="flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                title="Manage Interests"
+              >
+                <Settings size={20} />
+                <span>Interests</span>
               </button>
             </div>
           </div>
@@ -168,6 +180,12 @@ export function MainApp() {
           {currentScreen === 'dashboard' && <DashboardScreen />}
         </main>
       </div>
+
+      {/* Interests Management Modal */}
+      <InterestsModal
+        isOpen={isInterestsModalOpen}
+        onClose={() => setIsInterestsModalOpen(false)}
+      />
     </div>
   );
 }
