@@ -7,9 +7,11 @@ import { Database } from 'better-sqlite3';
 
 export function up(db: Database): void {
   // Check if columns already exist to avoid errors
-  const tableInfo = db.pragma('table_info(Briefings)') as Array<{ name: string }>;
-  const columnNames = tableInfo.map((col) => col.name);
-  
+  const tableInfo = db.pragma('table_info(Briefings)') as Array<{
+    name: string;
+  }>;
+  const columnNames = tableInfo.map(col => col.name);
+
   if (!columnNames.includes('topics_json')) {
     db.exec(`
       ALTER TABLE Briefings 
@@ -17,7 +19,7 @@ export function up(db: Database): void {
     `);
     console.log('Added topics_json column to Briefings table');
   }
-  
+
   if (!columnNames.includes('articles_json')) {
     db.exec(`
       ALTER TABLE Briefings 
@@ -25,7 +27,7 @@ export function up(db: Database): void {
     `);
     console.log('Added articles_json column to Briefings table');
   }
-  
+
   // Update existing briefings with empty JSON arrays if the columns were just added
   db.exec(`
     UPDATE Briefings 
@@ -41,14 +43,9 @@ export function down(): void {
 }
 
 export function runMigration004(): void {
-  const db = require('../../db').default;
-  
-  try {
-    console.log('Running migration 004: Add JSON columns to Briefings table...');
-    up(db);
-    console.log('Migration 004: Completed successfully');
-  } catch (error) {
-    console.error('Migration 004: Failed -', error);
-    throw error;
-  }
-} 
+  // This function is kept for backwards compatibility but not used
+  // The migration is now run automatically by the db/index.ts file
+  console.warn(
+    'runMigration004: This function is deprecated and no longer used'
+  );
+}

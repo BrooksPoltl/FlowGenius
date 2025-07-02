@@ -134,7 +134,10 @@ function runMigrations(db: DatabaseType): void {
     }>;
     const briefingsColumnNames = briefingsColumns.map(col => col.name);
 
-    if (!briefingsColumnNames.includes('topics_json') || !briefingsColumnNames.includes('articles_json')) {
+    if (
+      !briefingsColumnNames.includes('topics_json') ||
+      !briefingsColumnNames.includes('articles_json')
+    ) {
       console.log('Running migration 004: Add JSON columns to Briefings...');
       migration004Up(db);
       console.log('Migration 004 completed');

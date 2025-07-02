@@ -28,7 +28,9 @@ export function ArticlesView({ onBriefingChange }: ArticlesViewProps) {
   const [loading, setLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [currentBriefingId, setCurrentBriefingId] = useState<number | null>(null);
+  const [currentBriefingId, setCurrentBriefingId] = useState<number | null>(
+    null
+  );
   const [generatingSummary, setGeneratingSummary] = useState(false);
 
   /**
@@ -200,8 +202,11 @@ export function ArticlesView({ onBriefingChange }: ArticlesViewProps) {
 
     setGeneratingSummary(true);
     try {
-      console.log(`🧪 [RENDERER] Triggering summary generation for briefing ${currentBriefingId}`);
-      const result = await window.electronAPI.generateSummary(currentBriefingId);
+      console.log(
+        `🧪 [RENDERER] Triggering summary generation for briefing ${currentBriefingId}`
+      );
+      const result =
+        await window.electronAPI.generateSummary(currentBriefingId);
       console.log('🧪 [RENDERER] Summary generation result:', result);
       if (result.success) {
         console.log('🧪 [RENDERER] Summary generation started successfully');
@@ -209,26 +214,12 @@ export function ArticlesView({ onBriefingChange }: ArticlesViewProps) {
         console.error('🧪 [RENDERER] Summary generation failed:', result.error);
       }
     } catch (error) {
-      console.error('🧪 [RENDERER] Error triggering summary generation:', error);
+      console.error(
+        '🧪 [RENDERER] Error triggering summary generation:',
+        error
+      );
     } finally {
       setGeneratingSummary(false);
-    }
-  };
-
-  /**
-   * Handle article interaction (click, like, etc.)
-   */
-  const handleArticleInteraction = async (
-    articleUrl: string,
-    interactionType: string
-  ) => {
-    try {
-      await window.electronAPI.recordArticleInteraction(
-        articleUrl,
-        interactionType
-      );
-    } catch (error) {
-      console.error('Error recording article interaction:', error);
     }
   };
 

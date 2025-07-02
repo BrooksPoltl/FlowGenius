@@ -7,26 +7,13 @@
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, BarChart3, Menu, X } from 'lucide-react';
 
-import { MainScreen } from '../screens/main';
 import { DashboardScreen } from '../screens/dashboard';
-import { InterestsModal } from './InterestsModal';
-import { RecommendedTopics } from './RecommendedTopics';
 import { HistorySidebar } from './HistorySidebar';
 import { ArticlesView } from './ArticlesView';
 import { SummaryView } from './SummaryView';
 import { Article } from './ui/ArticleCard';
 
 type AppScreen = 'news' | 'dashboard';
-
-interface NewsStats {
-  interests: number;
-  searchResults: number;
-  curatedArticles: number;
-  duplicatesFiltered: number;
-  newArticlesSaved: number;
-  topicsExtracted: number;
-  articlesRanked: number;
-}
 
 export function MainApp() {
   const [currentScreen, setCurrentScreen] = useState<AppScreen>('news');
@@ -40,10 +27,7 @@ export function MainApp() {
   const [summaryReady, setSummaryReady] = useState(false);
 
   // Shared state that persists across screen navigation
-  const [articles, setArticles] = useState<Article[]>([]);
-  const [stats, setStats] = useState<NewsStats | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     // Listen for summary ready notifications
@@ -66,8 +50,8 @@ export function MainApp() {
    * Handles when a briefing is selected from the history sidebar
    */
   const handleBriefingSelect = (briefingArticles: Article[]) => {
-    setArticles(briefingArticles);
-    setStats(null); // Clear current run stats when viewing historical data
+    // Handle briefing selection - articles are managed by ArticlesView component
+    console.log('Selected briefing with', briefingArticles.length, 'articles');
   };
 
   return (
@@ -126,7 +110,7 @@ export function MainApp() {
             onBriefingSelect={handleBriefingSelect}
             isLoading={isLoading}
             setIsLoading={setIsLoading}
-            setError={setError}
+            setError={() => {}} // Placeholder for error handling
           />
         )}
 

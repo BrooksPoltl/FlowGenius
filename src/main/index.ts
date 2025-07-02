@@ -14,6 +14,7 @@ import { affinityAgent } from './services/news_curator/agents/affinity';
 import { getTopicRecommendations } from './services/recommendations';
 import db from './db';
 import { DatabaseWriterAgent } from './services/news_curator/agents/database_writer';
+import { Article } from '../shared/types';
 
 // Load environment variables from .env file
 config();
@@ -740,7 +741,7 @@ function setupNewsIPC(): void {
           ORDER BY a.personalization_score DESC, a.fetched_at DESC
         `
         )
-        .all(briefingId);
+        .all(briefingId) as Article[];
 
       if (articles.length === 0) {
         return { success: false, error: 'No articles found for briefing' };

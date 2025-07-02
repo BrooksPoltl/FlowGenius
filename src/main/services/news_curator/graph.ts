@@ -16,6 +16,30 @@ import { DatabaseWriterAgent } from './agents/database_writer';
 import { Article } from '../../../shared/types';
 import db from '../../db';
 
+/**
+ * Workflow execution result containing metrics and data
+ */
+export interface WorkflowResult {
+  userInterests: string[];
+  searchResults: Article[];
+  curatedArticles: Article[];
+  duplicatesFiltered: number;
+  newArticlesSaved: number;
+  topicsExtractedCount: number;
+  rankedCount: number;
+}
+
+/**
+ * Scraper result for individual articles
+ */
+export interface ScrapedContent {
+  url: string;
+  title: string;
+  content: string;
+  success: boolean;
+  error?: string;
+}
+
 // Define the state schema using Annotation.Root()
 const NewsCuratorState = Annotation.Root({
   // Settings phase
@@ -38,7 +62,7 @@ const NewsCuratorState = Annotation.Root({
   }),
 
   // Search phase
-  searchResults: Annotation<any[]>({
+  searchResults: Annotation<Article[]>({
     reducer: (current, update) => update ?? current,
   }),
   searchComplete: Annotation<boolean>({
@@ -46,7 +70,7 @@ const NewsCuratorState = Annotation.Root({
   }),
 
   // Curation phase
-  curatedArticles: Annotation<any[]>({
+  curatedArticles: Annotation<Article[]>({
     reducer: (current, update) => update ?? current,
   }),
   curationComplete: Annotation<boolean>({
@@ -104,7 +128,7 @@ export const newsCuratorGraph = workflow.compile();
  * Execute the news curation workflow
  * Now includes background summary generation after ranking
  */
-export async function executeNewsCurationWorkflow(): Promise<void> {
+export async function executeNewsCurationWorkflow(): Promise<WorkflowResult> {
   console.log('🚀 Starting news curation workflow...');
 
   try {
@@ -124,7 +148,15 @@ export async function executeNewsCurationWorkflow(): Promise<void> {
 
     if (schedulerResult.scheduledInterests.length === 0) {
       console.log('⏰ No interests ready for search due to cool-down periods');
-      return;
+      return {
+        userInterests,
+        searchResults: [],
+        curatedArticles: [],
+        duplicatesFiltered: 0,
+        newArticlesSaved: 0,
+        topicsExtractedCount: 0,
+        rankedCount: 0,
+      };
     }
 
     const searchResult = await searchAgent({
@@ -137,7 +169,15 @@ export async function executeNewsCurationWorkflow(): Promise<void> {
 
     if (searchResult.searchResults.length === 0) {
       console.log('📭 No new articles found');
-      return;
+      return {
+        userInterests,
+        searchResults: [],
+        curatedArticles: [],
+        duplicatesFiltered: 0,
+        newArticlesSaved: 0,
+        topicsExtractedCount: 0,
+        rankedCount: 0,
+      };
     }
 
     const curationResult = await curationAgent({
@@ -148,7 +188,15 @@ export async function executeNewsCurationWorkflow(): Promise<void> {
 
     if (curationResult.curatedArticles.length === 0) {
       console.log('🚫 No articles passed curation filters');
-      return;
+      return {
+        userInterests,
+        searchResults: searchResult.searchResults,
+        curatedArticles: [],
+        duplicatesFiltered: curationResult.duplicatesFiltered || 0,
+        newArticlesSaved: 0,
+        topicsExtractedCount: 0,
+        rankedCount: 0,
+      };
     }
 
     const topicResult = await topicExtractorAgent({
@@ -186,6 +234,17 @@ export async function executeNewsCurationWorkflow(): Promise<void> {
     });
 
     console.log('✅ News curation workflow completed successfully');
+
+    // Return the workflow result
+    return {
+      userInterests,
+      searchResults: searchResult.searchResults,
+      curatedArticles: curationResult.curatedArticles,
+      duplicatesFiltered: curationResult.duplicatesFiltered || 0,
+      newArticlesSaved: curationResult.newArticlesSaved || 0,
+      topicsExtractedCount: topicResult.topicsExtractedCount || 0,
+      rankedCount: rankingResult.rankedCount || 0,
+    };
   } catch (error) {
     console.error('❌ News curation workflow failed:', error);
     throw error;
@@ -228,19 +287,19 @@ export async function generateSummaryInBackground(
 
     // Add timeout wrapper for scraping
     const scrapingPromise = scraperAgent.scrapeArticles(articles);
-    const timeoutPromise = new Promise((_, reject) =>
+    const timeoutPromise = new Promise((_, reject) => {
       setTimeout(
         () => reject(new Error('Scraping timeout after 5 minutes')),
         5 * 60 * 1000
-      )
-    );
+      );
+    });
 
     const scrapedContent = (await Promise.race([
       scrapingPromise,
       timeoutPromise,
-    ])) as any;
+    ])) as ScrapedContent[];
     const successfulScrapes = scrapedContent.filter(
-      (content: any) => content.success
+      (content: ScrapedContent) => content.success
     );
     console.log(
       `✅ Successfully scraped ${successfulScrapes.length}/${articles.length} articles`
@@ -248,11 +307,11 @@ export async function generateSummaryInBackground(
 
     // Log details about failed scrapes
     const failedScrapes = scrapedContent.filter(
-      (content: any) => !content.success
+      (content: ScrapedContent) => !content.success
     );
     if (failedScrapes.length > 0) {
       console.log(`⚠️ Failed scrapes: ${failedScrapes.length}`);
-      failedScrapes.forEach((failed: any, index: number) => {
+      failedScrapes.forEach((failed: ScrapedContent, index: number) => {
         if (index < 3) {
           // Only log first 3 failures to avoid spam
           console.log(`  - ${failed.url}: ${failed.error}`);
@@ -295,7 +354,7 @@ export async function generateSummaryInBackground(
 
     // Notify renderer that summary is ready
     console.log('📢 Notifying renderer that summary is ready...');
-    notifyRendererSummaryReady(briefingId);
+    await notifyRendererSummaryReady(briefingId);
     console.log('📢 Notification sent');
   } catch (error) {
     console.error('❌ Background summary generation failed:', error);
@@ -326,14 +385,14 @@ async function saveBriefingToDatabase(
 /**
  * Notify renderer process that summary is ready
  */
-function notifyRendererSummaryReady(briefingId: number): void {
+async function notifyRendererSummaryReady(briefingId: number): Promise<void> {
   try {
-    // Get the main window and send notification
-    const { BrowserWindow } = require('electron');
-    const mainWindow = BrowserWindow.getAllWindows().find(
-      (win: any) => !win.isDestroyed()
+    // Import BrowserWindow at runtime to avoid circular dependency issues
+    const electron = await import('electron');
+    const mainWindow = electron.BrowserWindow.getAllWindows().find(
+      win => !win.isDestroyed()
     );
-    
+
     if (mainWindow) {
       console.log(`📢 Sending summary-ready event for briefing ${briefingId}`);
       mainWindow.webContents.send('summary-ready', briefingId);

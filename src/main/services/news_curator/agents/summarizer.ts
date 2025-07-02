@@ -70,17 +70,21 @@ export class SummarizerAgent {
   /**
    * Strip markdown code blocks from AI response and parse JSON
    */
-  private parseAIResponse(response: string): any {
+  private static parseAIResponse(response: string): any {
     // Remove markdown code blocks if present
     let cleanResponse = response.trim();
-    
+
     // Remove ```json and ``` markers
     if (cleanResponse.startsWith('```json')) {
-      cleanResponse = cleanResponse.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+      cleanResponse = cleanResponse
+        .replace(/^```json\s*/, '')
+        .replace(/\s*```$/, '');
     } else if (cleanResponse.startsWith('```')) {
-      cleanResponse = cleanResponse.replace(/^```\s*/, '').replace(/\s*```$/, '');
+      cleanResponse = cleanResponse
+        .replace(/^```\s*/, '')
+        .replace(/\s*```$/, '');
     }
-    
+
     return JSON.parse(cleanResponse.trim());
   }
 
@@ -99,7 +103,7 @@ export class SummarizerAgent {
 
     if (successfulScrapes.length === 0) {
       // Fallback to original article data if no scrapes succeeded
-      return this.generateFallbackSummary(originalArticles, topics);
+      return this.generateFallbackSummary(originalArticles);
     }
 
     // Generate main stories (top 3-5 most important articles)
@@ -113,7 +117,10 @@ export class SummarizerAgent {
     const quickBites = await this.generateQuickBites(remainingContent);
 
     // Extract images and citations
-    const images = this.extractImages(scrapedContent, originalArticles);
+    const images = SummarizerAgent.extractImages(
+      scrapedContent,
+      originalArticles
+    );
     const citations = this.generateCitations(originalArticles);
 
     // Generate engaging title and subtitle
@@ -186,7 +193,9 @@ Content: ${content.content.slice(0, 1000)}...
         })
       );
 
-      const parsed = this.parseAIResponse(response.content as string);
+      const parsed = SummarizerAgent.parseAIResponse(
+        response.content as string
+      );
       return parsed.map((story: any, index: number) => ({
         ...story,
         citations: [topContent[index].url],
@@ -250,7 +259,9 @@ Content: ${content.content.slice(0, 500)}...
         })
       );
 
-      const parsed = this.parseAIResponse(response.content as string);
+      const parsed = SummarizerAgent.parseAIResponse(
+        response.content as string
+      );
       return parsed.map((bite: any, index: number) => ({
         ...bite,
         citation: scrapedContent[index].url,
@@ -300,7 +311,9 @@ Return as JSON with fields: title, subtitle
         })
       );
 
-      const parsed = this.parseAIResponse(response.content as string);
+      const parsed = SummarizerAgent.parseAIResponse(
+        response.content as string
+      );
       return {
         title: parsed.title || 'Your Daily Briefing',
         subtitle: parsed.subtitle || 'Top stories curated for your interests',
@@ -323,7 +336,7 @@ Return as JSON with fields: title, subtitle
   /**
    * Extract images from Brave Search thumbnail URLs (no scraping needed)
    */
-  private extractImages(
+  private static extractImages(
     scrapedContent: ScrapedContent[],
     originalArticles: Article[]
   ): SummaryImage[] {
@@ -358,6 +371,7 @@ Return as JSON with fields: title, subtitle
   /**
    * Extract source name from URL
    */
+  // eslint-disable-next-line class-methods-use-this
   private extractSourceName(url: string): string {
     try {
       const { hostname } = new URL(url);
@@ -371,8 +385,7 @@ Return as JSON with fields: title, subtitle
    * Generate fallback summary when scraping fails
    */
   private generateFallbackSummary(
-    originalArticles: Article[],
-    _topics: string[] // Prefix with underscore to indicate intentionally unused
+    originalArticles: Article[]
   ): ExecutiveSummary {
     const date = new Date().toLocaleDateString('en-US', {
       weekday: 'long',

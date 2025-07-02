@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { ExternalLink, Clock, Calendar } from 'lucide-react';
+// Icons from lucide-react would be imported here if needed
 
 interface ExecutiveSummary {
   title: string;
@@ -63,16 +63,18 @@ export function SummaryView({ briefingId, summaryReady }: SummaryViewProps) {
 
     setLoading(true);
     setError(null);
-    
+
     try {
       console.log(`📋 [RENDERER] Loading summary for briefing ${briefingId}`);
       const result = await window.electronAPI.getSummary(briefingId);
-      
+
       if (result) {
         console.log(`📋 [RENDERER] Summary loaded successfully:`, result);
         setSummary(result);
       } else {
-        console.log(`📋 [RENDERER] No summary found for briefing ${briefingId}`);
+        console.log(
+          `📋 [RENDERER] No summary found for briefing ${briefingId}`
+        );
         setError('No summary available for this briefing yet');
       }
     } catch (err) {
@@ -89,13 +91,6 @@ export function SummaryView({ briefingId, summaryReady }: SummaryViewProps) {
       loadSummary();
     }
   }, [briefingId, summaryReady, loadSummary]);
-
-  /**
-   * Open article in external browser
-   */
-  const openArticle = (url: string) => {
-    window.open(url, '_blank');
-  };
 
   if (!briefingId) {
     return (
@@ -196,8 +191,8 @@ export function SummaryView({ briefingId, summaryReady }: SummaryViewProps) {
             Generating Summary
           </h3>
           <p className="text-gray-500">
-            Our AI is crafting your personalized executive summary. This
-            usually takes a few moments.
+            Our AI is crafting your personalized executive summary. This usually
+            takes a few moments.
           </p>
         </div>
       </div>

@@ -216,7 +216,7 @@ export class ScraperAgent {
       }
 
       const robotsText = await response.text();
-      const rules = this.parseRobotsTxt(robotsText);
+      const rules = ScraperAgent.parseRobotsTxt(robotsText);
       this.robotsCache.set(domain, rules);
 
       return this.isAllowedByRobots(url, rules);
@@ -230,7 +230,7 @@ export class ScraperAgent {
   /**
    * Parse robots.txt content into rules
    */
-  private parseRobotsTxt(robotsText: string): RobotsRule[] {
+  private static parseRobotsTxt(robotsText: string): RobotsRule[] {
     const rules: RobotsRule[] = [];
     const lines = robotsText.split('\n').map(line => line.trim());
 
@@ -317,7 +317,9 @@ export class ScraperAgent {
 
     if (timeSinceLastRequest < crawlDelay) {
       const waitTime = crawlDelay - timeSinceLastRequest;
-      await new Promise<void>(resolve => setTimeout(resolve, waitTime));
+      await new Promise<void>(resolve => {
+        setTimeout(resolve, waitTime);
+      });
     }
 
     this.lastRequestTime.set(domain, Date.now());
@@ -326,6 +328,7 @@ export class ScraperAgent {
   /**
    * Extract content from HTML (simplified - no image extraction)
    */
+  // eslint-disable-next-line class-methods-use-this
   private extractContent(html: string): {
     title?: string;
     content: string;
@@ -377,7 +380,9 @@ export class ScraperAgent {
         .replace(/<div[^>]*class="[^"]*ad[^"]*"[^>]*>.*?<\/div>/gis, '');
 
       // Convert to plain text
-      const plainText = this.stripHtmlTags(content).replace(/\s+/g, ' ').trim();
+      const plainText = ScraperAgent.stripHtmlTags(content)
+        .replace(/\s+/g, ' ')
+        .trim();
 
       return {
         title: titleMatch?.trim(),
@@ -388,7 +393,7 @@ export class ScraperAgent {
     } catch (error) {
       console.error('Content extraction failed:', error);
       return {
-        content: `${this.stripHtmlTags(html).slice(0, 1000)}...`, // Fallback to first 1000 chars
+        content: `${ScraperAgent.stripHtmlTags(html).slice(0, 1000)}...`, // Fallback to first 1000 chars
       };
     }
   }
@@ -396,7 +401,7 @@ export class ScraperAgent {
   /**
    * Strip HTML tags from text
    */
-  private stripHtmlTags(html: string): string {
+  private static stripHtmlTags(html: string): string {
     return html
       .replace(/<[^>]*>/g, '')
       .replace(/&nbsp;/g, ' ')
