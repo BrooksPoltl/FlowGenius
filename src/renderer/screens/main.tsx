@@ -38,7 +38,9 @@ export function MainScreen({
   setError,
 }: MainScreenProps) {
   const [isInterestsModalOpen, setIsInterestsModalOpen] = useState(false);
-  const [articleInteractions, setArticleInteractions] = useState<Record<string, { type: 'like' | 'dislike' | 'click' }>>({});
+  const [articleInteractions, setArticleInteractions] = useState<
+    Record<string, { type: 'like' | 'dislike' | 'click' }>
+  >({});
 
   /**
    * Loads interaction states for the current articles
@@ -87,7 +89,7 @@ export function MainScreen({
 
         setArticles(mappedArticles);
         setStats(result.data.stats);
-        
+
         // Load interaction states for the new articles
         await loadArticleInteractions(mappedArticles);
       } else {
@@ -192,7 +194,9 @@ export function MainScreen({
                 <ArticleCard
                   key={`${article.url}-${index}`}
                   article={article}
-                  initialInteractionState={articleInteractions[article.url]?.type || null}
+                  initialInteractionState={
+                    articleInteractions[article.url]?.type || null
+                  }
                 />
               ))}
             </div>

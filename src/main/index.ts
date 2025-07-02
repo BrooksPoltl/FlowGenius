@@ -12,6 +12,7 @@ import {
 } from './services/settings';
 import { runNewsCuration } from './services/news_curator/graph';
 import { affinityAgent } from './services/news_curator/agents/affinity';
+import { getTopicRecommendations } from './services/recommendations';
 import db from './db';
 
 // Load environment variables from .env file
@@ -74,6 +75,17 @@ function setupInterestsIPC(): void {
       return { success: false, error: 'Failed to delete interest' };
     }
   });
+
+  // Get topic recommendations
+  ipcMain.handle('get-topic-recommendations', async () => {
+    try {
+      const recommendations = getTopicRecommendations();
+      return { success: true, data: recommendations };
+    } catch (error) {
+      console.error('Error getting topic recommendations:', error);
+      return { success: false, error: 'Failed to get topic recommendations' };
+    }
+  });
 }
 
 /**
@@ -134,7 +146,9 @@ function setupNewsIPC(): void {
           'INSERT INTO Briefing_Articles (briefing_id, article_id) VALUES (?, ?)'
         );
 
-        const getArticleId = db.prepare('SELECT id FROM Articles WHERE url = ?');
+        const getArticleId = db.prepare(
+          'SELECT id FROM Articles WHERE url = ?'
+        );
 
         for (const article of result.curatedArticles) {
           const articleRow = getArticleId.get(article.url) as
@@ -144,7 +158,9 @@ function setupNewsIPC(): void {
             insertBriefingArticle.run(briefingId, articleRow.id);
           }
         }
-        console.log(`🗞️  Archived briefing "${briefingTitle}" with ${result.curatedArticles.length} articles.`);
+        console.log(
+          `🗞️  Archived briefing "${briefingTitle}" with ${result.curatedArticles.length} articles.`
+        );
       }
 
       // Get the newly curated articles with their personalization scores
@@ -386,7 +402,9 @@ function setupNewsIPC(): void {
     }
   });
 
-  console.log('🔗 Finished registering dashboard handler, moving to briefings...');
+  console.log(
+    '🔗 Finished registering dashboard handler, moving to briefings...'
+  );
 
   // IPC Handler for Briefings History
   console.log('🔗 Registering get-briefings-list IPC handler...');
@@ -458,59 +476,77 @@ function setupNewsIPC(): void {
 
   // IPC Handler for Article Interactions
   console.log('🔗 Registering get-article-interactions IPC handler...');
-  ipcMain.handle('get-article-interactions', async (_, articleUrls: string[]) => {
-    try {
-      console.log(`🔍 Fetching interactions for ${articleUrls.length} articles...`);
+  ipcMain.handle(
+    'get-article-interactions',
+    async (_, articleUrls: string[]) => {
+      try {
+        console.log(
+          `🔍 Fetching interactions for ${articleUrls.length} articles...`
+        );
 
-      if (articleUrls.length === 0) {
-        return { success: true, data: {} };
-      }
+        if (articleUrls.length === 0) {
+          return { success: true, data: {} };
+        }
 
-      const placeholders = articleUrls.map(() => '?').join(',');
-      const interactions = db
-        .prepare(
-          `
+        const placeholders = articleUrls.map(() => '?').join(',');
+        const interactions = db
+          .prepare(
+            `
           SELECT a.url, i.interaction_type, i.created_at
           FROM Articles a
           JOIN Interactions i ON a.id = i.article_id
           WHERE a.url IN (${placeholders})
           ORDER BY i.created_at DESC
         `
-        )
-        .all(...articleUrls);
+          )
+          .all(...articleUrls);
 
-      // Group interactions by URL, keeping only the most recent like/dislike
-      const interactionMap: Record<string, { type: 'like' | 'dislike' | 'click'; timestamp: string }> = {};
-      
-      for (const interaction of interactions as Array<{url: string; interaction_type: string; created_at: string}>) {
-        const url = interaction.url;
-        const type = interaction.interaction_type;
-        
-        // For like/dislike, keep only the most recent one
-        if (type === 'like' || type === 'dislike') {
-          if (!interactionMap[url] || interactionMap[url].type === 'click') {
-            interactionMap[url] = { type: type as 'like' | 'dislike', timestamp: interaction.created_at };
+        // Group interactions by URL, keeping only the most recent like/dislike
+        const interactionMap: Record<
+          string,
+          { type: 'like' | 'dislike' | 'click'; timestamp: string }
+        > = {};
+
+        for (const interaction of interactions as Array<{
+          url: string;
+          interaction_type: string;
+          created_at: string;
+        }>) {
+          const { url } = interaction;
+          const type = interaction.interaction_type;
+
+          // For like/dislike, keep only the most recent one
+          if (type === 'like' || type === 'dislike') {
+            if (!interactionMap[url] || interactionMap[url].type === 'click') {
+              interactionMap[url] = {
+                type: type as 'like' | 'dislike',
+                timestamp: interaction.created_at,
+              };
+            }
+          }
+          // For clicks, only set if no interaction exists yet
+          else if (type === 'click' && !interactionMap[url]) {
+            interactionMap[url] = {
+              type: 'click',
+              timestamp: interaction.created_at,
+            };
           }
         }
-        // For clicks, only set if no interaction exists yet
-        else if (type === 'click' && !interactionMap[url]) {
-          interactionMap[url] = { type: 'click', timestamp: interaction.created_at };
-        }
-      }
 
-      return {
-        success: true,
-        data: interactionMap,
-      };
-    } catch (error) {
-      console.error('Error getting article interactions:', error);
-      return {
-        success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : 'Failed to get article interactions',
-      };
+        return {
+          success: true,
+          data: interactionMap,
+        };
+      } catch (error) {
+        console.error('Error getting article interactions:', error);
+        return {
+          success: false,
+          error:
+            error instanceof Error
+              ? error.message
+              : 'Failed to get article interactions',
+        };
+      }
     }
-  });
+  );
 }

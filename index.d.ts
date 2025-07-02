@@ -10,6 +10,7 @@ declare global {
       getInterests: () => Promise<any>;
       addInterest: (interest: string) => Promise<any>;
       deleteInterest: (interest: string) => Promise<any>;
+      getTopicRecommendations: () => Promise<any>;
 
       // News curation
       getDailyNews: () => Promise<any>;

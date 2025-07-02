@@ -25,7 +25,10 @@ interface ArticleCardProps {
  * ArticleCard component that displays a news article with interaction buttons
  * Supports like, dislike, and click-through tracking for personalization
  */
-export function ArticleCard({ article, initialInteractionState }: ArticleCardProps) {
+export function ArticleCard({
+  article,
+  initialInteractionState,
+}: ArticleCardProps) {
   const [isLiked, setIsLiked] = useState(false);
   const [isDisliked, setIsDisliked] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);

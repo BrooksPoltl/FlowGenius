@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2 } from 'lucide-react';
+import { RecommendedTopics } from './RecommendedTopics';
 
 interface InterestsModalProps {
   isOpen: boolean;
@@ -162,6 +163,11 @@ export function InterestsModal({ isOpen, onClose }: InterestsModalProps) {
               </button>
             </div>
           </form>
+
+          {/* Topic Recommendations */}
+          <div className="mb-6">
+            <RecommendedTopics onTopicAdded={loadInterests} />
+          </div>
 
           {/* Interests List */}
           <div>

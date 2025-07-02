@@ -21,6 +21,8 @@ const API = {
     ipcRenderer.invoke('add-interest', interest),
   deleteInterest: (interest: string) =>
     ipcRenderer.invoke('delete-interest', interest),
+  getTopicRecommendations: () =>
+    ipcRenderer.invoke('get-topic-recommendations'),
 
   // News curation
   getDailyNews: () => ipcRenderer.invoke('get-daily-news'),
