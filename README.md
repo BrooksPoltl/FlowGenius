@@ -21,7 +21,6 @@
 - [🔮 Future Features](#-future-features)
 - [🛠️ Development](#️-development)
 - [📚 Documentation](#-documentation)
-- [🤝 Contributing](#-contributing)
 
 ---
 
@@ -216,12 +215,12 @@ personalización_score = Σ(topic_affinity * relevance_score) / topic_count
 
 | Priority | Feature | Description | Estimated Effort |
 |----------|---------|-------------|------------------|
-| **High** | Executive Summary | AI-generated daily briefing summaries | 2-3 weeks |
-| **High** | Liked Articles View | Dedicated screen for favorite articles | 1-2 weeks |
-| **Medium** | Audio Briefing | Text-to-speech integration for audio news | 2-3 weeks |
-| **Medium** | Deep Dive Agent | On-demand research for article topics | 3-4 weeks |
-| **Low** | Multi-User Support | Support for multiple user profiles | 4-6 weeks |
-| **Low** | Export Features | PDF/email export of briefings | 1-2 weeks |
+| **High** | Executive Summary | AI-generated daily briefing summaries
+| **High** | Liked Articles View | Dedicated screen for favorite articles
+| **Medium** | Audio Briefing | Text-to-speech integration for audio news
+| **Medium** | Deep Dive Agent | On-demand research for article topics
+| **Low** | Multi-User Support | Support for multiple user profiles
+| **Low** | Export Features | PDF/email export of briefings
 
 ### **Technical Improvements**
 
@@ -307,44 +306,6 @@ The application exposes several IPC endpoints for communication between main and
 - **History**: `get-briefings-list`, `get-briefing-articles`
 
 ---
-
-## 🤝 Contributing
-
-We welcome contributions to FlowGenius! Here's how to get started:
-
-### **Development Setup**
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Make your changes with proper tests
-4. Commit with descriptive messages: `git commit -m 'Add amazing feature'`
-5. Push to your branch: `git push origin feature/amazing-feature`
-6. Open a Pull Request
-
-### **Contribution Guidelines**
-
-- **Code Quality**: Follow the established code style and linting rules
-- **Documentation**: Update relevant documentation for new features
-- **Testing**: Add tests for new functionality
-- **Performance**: Consider performance implications of changes
-- **AI-First**: Maintain modular, AI-tool-friendly code structure
-
-### **Areas for Contribution**
-
-- **UI/UX Improvements**: Enhanced user interface and experience
-- **Performance Optimization**: Database and workflow performance
-- **New AI Agents**: Additional specialized agents for the workflow
-- **Integration Features**: New data sources or export capabilities
-- **Documentation**: Improved guides and API documentation
-
----
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
 ## 🙏 Acknowledgments
 
 - **LangGraph**: For the powerful AI agent orchestration framework
