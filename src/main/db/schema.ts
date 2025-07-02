@@ -113,6 +113,16 @@ export const CREATE_WORKFLOW_RUNS_TABLE = `
   );
 `;
 
+export const CREATE_USER_SETTINGS_TABLE = `
+  CREATE TABLE IF NOT EXISTS UserSettings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    key TEXT NOT NULL UNIQUE,
+    value TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
+`;
+
 export interface Interest {
   id: number;
   name: string;
@@ -129,4 +139,12 @@ export interface Briefing {
   topics_json: string; // JSON array of topic strings
   articles_json: string; // JSON array of Article objects
   summary_json?: string; // JSON object containing executive summary
+}
+
+export interface UserSetting {
+  id: number;
+  key: string;
+  value: string;
+  created_at: string;
+  updated_at: string;
 }

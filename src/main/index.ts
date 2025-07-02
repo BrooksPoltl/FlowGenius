@@ -10,6 +10,13 @@ import {
   addInterest,
   deleteInterest,
 } from './services/settings';
+import {
+  getUserSettings,
+  updateUserSettings,
+  getSetting,
+  setSetting,
+} from './services/user-settings';
+import { SchedulerService } from './services/scheduler';
 import { affinityAgent } from './services/news_curator/agents/affinity';
 import { getTopicRecommendations } from './services/recommendations';
 import db from './db';
@@ -29,6 +36,11 @@ makeAppWithSingleInstanceLock(async () => {
   console.log('📊 Initializing database and settings...');
   initializeSettings();
 
+  // Initialize scheduler service
+  console.log('⏰ Initializing scheduler service...');
+  const scheduler = SchedulerService.getInstance();
+  scheduler.initialize();
+
   // Initialize database writer agent
   // DatabaseWriterAgent methods are now static, no need to instantiate
 
@@ -36,6 +48,7 @@ makeAppWithSingleInstanceLock(async () => {
   console.log('🔗 Setting up IPC handlers...');
   setupInterestsIPC();
   setupNewsIPC();
+  setupSettingsIPC();
 
   console.log('🖼️ Creating main window...');
   await makeAppSetup(MainWindow);
@@ -1011,6 +1024,60 @@ function setupNewsIPC(): void {
             ? error.message
             : 'Failed to start summary generation',
       };
+    }
+  });
+}
+
+/**
+ * Sets up IPC handlers for user settings management
+ */
+function setupSettingsIPC(): void {
+  // Get all user settings
+  ipcMain.handle('settings:get', async () => {
+    try {
+      const settings = getUserSettings();
+      return { success: true, data: settings };
+    } catch (error) {
+      console.error('Error getting user settings:', error);
+      return { success: false, error: 'Failed to get user settings' };
+    }
+  });
+
+  // Update user settings
+  ipcMain.handle('settings:update', async (_, settings) => {
+    try {
+      updateUserSettings(settings);
+      
+      // Update scheduler with new settings
+      const scheduler = SchedulerService.getInstance();
+      scheduler.updateSchedules();
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Error updating user settings:', error);
+      return { success: false, error: 'Failed to update user settings' };
+    }
+  });
+
+  // Get a specific setting
+  ipcMain.handle('settings:get-setting', async (_, key: string) => {
+    try {
+      const value = getSetting(key as any);
+      return { success: true, data: value };
+    } catch (error) {
+      console.error(`Error getting setting ${key}:`, error);
+      return { success: false, error: `Failed to get setting ${key}` };
+    }
+  });
+
+  // Set a specific setting
+  ipcMain.handle('settings:set-setting', async (_, key: string, value: any) => {
+    try {
+      setSetting(key as any, value);
+      return { success: true };
+    } catch (error) {
+      console.error(`Error setting ${key}:`, error);
+      return { success: false, error: `Failed to set setting ${key}` };
     }
   });
 }

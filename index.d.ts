@@ -30,6 +30,27 @@ declare global {
 
       // Article interactions
       getArticleInteractions: (articleUrls: string[]) => Promise<any>;
+
+      // News curation workflow
+      getLatestBriefing: () => Promise<any>;
+      curateNews: () => Promise<any>;
+      recordArticleInteraction: (articleUrl: string, interactionType: string) => Promise<any>;
+
+      // Summary operations
+      getSummary: (briefingId: number) => Promise<any>;
+      generateSummary: (briefingId: number) => Promise<any>;
+      onSummaryReady: (callback: (briefingId: number) => void) => () => void;
+      getSummaryStats: () => Promise<any>;
+
+      // Refresh operations
+      forceRefresh: () => Promise<any>;
+      getCooldownStatus: () => Promise<any>;
+
+      // Settings management
+      getSettings: () => Promise<any>;
+      updateSettings: (settings: any) => Promise<any>;
+      getSetting: (key: string) => Promise<any>;
+      setSetting: (key: string, value: any) => Promise<any>;
     };
   }
 }

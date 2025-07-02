@@ -73,6 +73,12 @@ const API = {
   // Refresh operations
   forceRefresh: () => ipcRenderer.invoke('force-refresh'),
   getCooldownStatus: () => ipcRenderer.invoke('get-cooldown-status'),
+
+  // Settings management
+  getSettings: () => ipcRenderer.invoke('settings:get'),
+  updateSettings: (settings: any) => ipcRenderer.invoke('settings:update', settings),
+  getSetting: (key: string) => ipcRenderer.invoke('settings:get-setting', key),
+  setSetting: (key: string, value: any) => ipcRenderer.invoke('settings:set-setting', key, value),
 };
 
 console.log('🔧 API object created:', Object.keys(API));

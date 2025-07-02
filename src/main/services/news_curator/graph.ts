@@ -13,6 +13,7 @@ import { rankingAgent } from './agents/ranking';
 import { ScraperAgent } from './agents/scraper';
 import { SummarizerAgent } from './agents/summarizer';
 import { DatabaseWriterAgent } from './agents/database_writer';
+import { NotificationAgent, NotificationState } from './agents/notification';
 import { Article } from '../../../shared/types';
 import db from '../../db';
 
@@ -338,6 +339,20 @@ export async function generateSummaryInBackground(
     console.log('📢 Notifying renderer that summary is ready...');
     await notifyRendererSummaryReady(briefingId);
     console.log('📢 Notification sent');
+
+    // Send desktop notification
+    console.log('📱 Sending desktop notification...');
+    const notificationState: NotificationState = {
+      briefingId,
+      briefingTitle: `Daily Briefing - ${new Date().toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      })}`,
+      articleCount: articles.length,
+    };
+    await NotificationAgent.sendBriefingNotification(notificationState);
+    console.log('📱 Desktop notification sent');
   } catch (error) {
     console.error('❌ Background summary generation failed:', error);
     console.error(

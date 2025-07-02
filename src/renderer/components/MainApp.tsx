@@ -8,13 +8,14 @@ import React, { useState, useEffect } from 'react';
 import { TrendingUp, BarChart3, Menu, X, Settings } from 'lucide-react';
 
 import { DashboardScreen } from '../screens/dashboard';
+import { SettingsScreen } from '../screens/settings';
 import { HistorySidebar } from './HistorySidebar';
 import { ArticlesView } from './ArticlesView';
 import { SummaryView } from './SummaryView';
 import { InterestsModal } from './InterestsModal';
 import { Article } from './ui/ArticleCard';
 
-type AppScreen = 'news' | 'dashboard';
+type AppScreen = 'news' | 'dashboard' | 'settings';
 
 export function MainApp() {
   const [currentScreen, setCurrentScreen] = useState<AppScreen>('news');
@@ -106,14 +107,16 @@ export function MainApp() {
                 <span>Analytics</span>
               </button>
 
-              {/* Settings/Interests Button */}
               <button
-                onClick={() => setIsInterestsModalOpen(true)}
-                className="flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                title="Manage Interests"
+                onClick={() => setCurrentScreen('settings')}
+                className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+                  currentScreen === 'settings'
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                }`}
               >
                 <Settings size={20} />
-                <span>Interests</span>
+                <span>Settings</span>
               </button>
             </div>
           </div>
@@ -192,6 +195,7 @@ export function MainApp() {
             </div>
           )}
           {currentScreen === 'dashboard' && <DashboardScreen />}
+          {currentScreen === 'settings' && <SettingsScreen />}
         </main>
       </div>
 

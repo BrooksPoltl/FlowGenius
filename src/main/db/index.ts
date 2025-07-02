@@ -16,9 +16,11 @@ import {
   CREATE_BRIEFINGS_TABLE,
   CREATE_BRIEFING_ARTICLES_TABLE,
   CREATE_WORKFLOW_RUNS_TABLE,
+  CREATE_USER_SETTINGS_TABLE,
 } from './schema';
 import { up as migration003Up } from './migrations/003_add_summary_column';
 import { up as migration004Up } from './migrations/004_add_briefing_json_columns';
+import { up as migration005Up } from './migrations/005_add_user_settings_table';
 
 // Get the path to the user data directory
 const userDataPath = app.getPath('userData');
@@ -42,6 +44,7 @@ db.exec(CREATE_INTERACTIONS_TABLE);
 db.exec(CREATE_BRIEFINGS_TABLE);
 db.exec(CREATE_BRIEFING_ARTICLES_TABLE);
 db.exec(CREATE_WORKFLOW_RUNS_TABLE);
+db.exec(CREATE_USER_SETTINGS_TABLE);
 
 // Run migrations to add missing columns if they don't exist
 runMigrations(db);
@@ -141,6 +144,23 @@ function runMigrations(db: DatabaseType): void {
       console.log('Running migration 004: Add JSON columns to Briefings...');
       migration004Up(db);
       console.log('Migration 004 completed');
+    }
+
+    // Migration 005: Add UserSettings table
+    const userSettingsTableExists = db
+      .prepare(
+        `
+      SELECT COUNT(*) as count 
+      FROM sqlite_master 
+      WHERE type='table' AND name='UserSettings'
+    `
+      )
+      .get() as { count: number };
+
+    if (userSettingsTableExists.count === 0) {
+      console.log('Running migration 005: Add UserSettings table...');
+      migration005Up(db);
+      console.log('Migration 005 completed');
     }
   } catch (error) {
     console.error('Error running migrations:', error);
