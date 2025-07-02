@@ -61,6 +61,22 @@ export async function curationAgent(state: any): Promise<any> {
       VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
     `);
 
+    // Prepare statements for updating interest discovery metrics
+    const getInterestData = db.prepare(`
+      SELECT last_new_article_at, discovery_count, avg_discovery_interval_seconds
+      FROM Interests 
+      WHERE name = ?
+    `);
+
+    const updateInterestMetrics = db.prepare(`
+      UPDATE Interests 
+      SET 
+        last_new_article_at = datetime('now'),
+        discovery_count = ?,
+        avg_discovery_interval_seconds = ?
+      WHERE name = ?
+    `);
+
     // Process each article
     for (const article of articles) {
       try {
@@ -98,6 +114,22 @@ export async function curationAgent(state: any): Promise<any> {
 
         curatedArticles.push(article);
         savedCount++;
+
+        // Update discovery metrics for the source interest
+        if (article.sourceInterest) {
+          try {
+            updateInterestDiscoveryMetrics(
+              article.sourceInterest,
+              getInterestData,
+              updateInterestMetrics
+            );
+          } catch (error) {
+            console.error(
+              `Error updating discovery metrics for interest "${article.sourceInterest}":`,
+              error
+            );
+          }
+        }
       } catch (error) {
         console.error(`Error processing article "${article.title}":`, error);
       }
@@ -139,6 +171,62 @@ export async function curationAgent(state: any): Promise<any> {
       error: errorMessage,
     };
   }
+}
+
+/**
+ * Updates discovery metrics for an interest when a new article is found
+ * @param interestName - Name of the interest
+ * @param getInterestData - Prepared statement to get current interest data
+ * @param updateInterestMetrics - Prepared statement to update interest metrics
+ */
+function updateInterestDiscoveryMetrics(
+  interestName: string,
+  getInterestData: any,
+  updateInterestMetrics: any
+): void {
+  const currentData = getInterestData.get(interestName) as
+    | {
+        last_new_article_at: string | null;
+        discovery_count: number;
+        avg_discovery_interval_seconds: number;
+      }
+    | undefined;
+
+  if (!currentData) {
+    console.warn(`Interest "${interestName}" not found in database`);
+    return;
+  }
+
+  const currentTime = new Date();
+  const newDiscoveryCount = currentData.discovery_count + 1;
+  let newAvgInterval = currentData.avg_discovery_interval_seconds;
+
+  // If this is not the first discovery, calculate the new average interval
+  if (currentData.last_new_article_at && currentData.discovery_count > 0) {
+    const lastDiscovery = new Date(currentData.last_new_article_at);
+    const intervalSeconds =
+      (currentTime.getTime() - lastDiscovery.getTime()) / 1000;
+
+    // Calculate running average: new_avg = ((old_avg * old_count) + new_interval) / new_count
+    newAvgInterval =
+      (currentData.avg_discovery_interval_seconds *
+        currentData.discovery_count +
+        intervalSeconds) /
+      newDiscoveryCount;
+
+    console.log(
+      `📊 Interest "${interestName}": interval=${Math.round(intervalSeconds / 3600)}h, new_avg=${Math.round(newAvgInterval / 3600)}h`
+    );
+  } else {
+    // First discovery, set a default interval (24 hours)
+    newAvgInterval = 24 * 3600; // 24 hours in seconds
+    console.log(
+      `📊 Interest "${interestName}": first discovery, setting default avg=24h`
+    );
+  }
+
+  // Update the database
+  updateInterestMetrics.run(newDiscoveryCount, newAvgInterval, interestName);
 }
 
 /**

@@ -3,7 +3,7 @@
  * This agent receives interests from SettingsAgent and fetches relevant news
  */
 
-import { SettingsState } from './settings';
+import { SchedulerState } from './scheduler';
 
 export interface Article {
   title: string;
@@ -12,9 +12,10 @@ export interface Article {
   source: string;
   published_at?: string;
   thumbnail?: string;
+  sourceInterest?: string; // Track which interest this article came from
 }
 
-export interface SearchState extends SettingsState {
+export interface SearchState extends SchedulerState {
   articles: Article[];
   searchErrors?: string[];
 }
@@ -26,7 +27,10 @@ export interface SearchState extends SettingsState {
  */
 export async function searchAgent(state: any): Promise<any> {
   try {
-    const { userInterests, error } = state;
+    const { scheduledInterests, cooledDownInterests, error } = state;
+
+    // Use scheduled interests instead of all user interests
+    const interestsToSearch = scheduledInterests || [];
 
     // If there was an error in previous agent, pass it through
     if (error) {
@@ -44,9 +48,32 @@ export async function searchAgent(state: any): Promise<any> {
     const articles: Article[] = [];
     const searchErrors: string[] = [];
 
-    // Search for articles for each interest with rate limiting (1 TPS)
-    for (let i = 0; i < userInterests.length; i++) {
-      const interest = userInterests[i];
+    if (interestsToSearch.length === 0) {
+      console.log('📅 No interests scheduled for search (all on cool-down)');
+      if (cooledDownInterests && cooledDownInterests.length > 0) {
+        console.log(
+          `❄️  ${cooledDownInterests.length} interests on cool-down: ${cooledDownInterests.join(', ')}`
+        );
+      }
+      return {
+        searchResults: [],
+        searchComplete: true,
+        searchErrors: undefined,
+      };
+    }
+
+    console.log(
+      `🔍 Searching for ${interestsToSearch.length} scheduled interests...`
+    );
+    if (cooledDownInterests && cooledDownInterests.length > 0) {
+      console.log(
+        `❄️  ${cooledDownInterests.length} interests on cool-down: ${cooledDownInterests.join(', ')}`
+      );
+    }
+
+    // Search for articles for each scheduled interest with rate limiting (1 TPS)
+    for (let i = 0; i < interestsToSearch.length; i++) {
+      const interest = interestsToSearch[i];
 
       try {
         // Add delay between requests to respect 1 TPS limit (except for first request)
@@ -59,7 +86,14 @@ export async function searchAgent(state: any): Promise<any> {
 
         console.log(`Searching for "${interest}"...`);
         const searchResults = await searchNewsForTopic(interest, braveApiKey);
-        articles.push(...searchResults);
+
+        // Tag each article with its source interest
+        const taggedResults = searchResults.map(article => ({
+          ...article,
+          sourceInterest: interest,
+        }));
+
+        articles.push(...taggedResults);
         console.log(`Found ${searchResults.length} articles for "${interest}"`);
       } catch (error) {
         const errorMessage = `Failed to search for "${interest}": ${error instanceof Error ? error.message : 'Unknown error'}`;

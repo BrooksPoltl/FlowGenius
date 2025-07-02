@@ -4,12 +4,16 @@
  */
 
 import db from '../db';
+import { runMigration001 } from '../db/migrations/001_add_interest_discovery_tracking';
 
 /**
  * Initializes default settings and seeds default interests if none exist
  */
 export function initializeSettings(): void {
   try {
+    // Run database migrations first
+    runMigration001();
+
     const existingInterests = getUserInterests();
 
     if (existingInterests.length === 0) {

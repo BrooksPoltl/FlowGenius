@@ -5,6 +5,7 @@
 
 import { Annotation, StateGraph, START, END } from '@langchain/langgraph';
 import { settingsAgent } from './agents/settings';
+import { interestSchedulerAgent } from './agents/scheduler';
 import { searchAgent } from './agents/search';
 import { curationAgent } from './agents/curation';
 import { topicExtractorAgent } from './agents/topic_extractor';
@@ -17,6 +18,17 @@ const NewsCuratorState = Annotation.Root({
     reducer: (current, update) => update ?? current,
   }),
   settingsLoaded: Annotation<boolean>({
+    reducer: (current, update) => update ?? current,
+  }),
+
+  // Scheduling phase
+  scheduledInterests: Annotation<string[]>({
+    reducer: (current, update) => update ?? current,
+  }),
+  cooledDownInterests: Annotation<string[]>({
+    reducer: (current, update) => update ?? current,
+  }),
+  schedulingComplete: Annotation<boolean>({
     reducer: (current, update) => update ?? current,
   }),
 
@@ -67,12 +79,14 @@ const NewsCuratorState = Annotation.Root({
 // Create the state graph
 const workflow = new StateGraph(NewsCuratorState)
   .addNode('settings', settingsAgent)
+  .addNode('scheduler', interestSchedulerAgent)
   .addNode('search', searchAgent)
   .addNode('curate', curationAgent)
   .addNode('extract_topics', topicExtractorAgent)
   .addNode('rank', rankingAgent)
   .addEdge(START, 'settings')
-  .addEdge('settings', 'search')
+  .addEdge('settings', 'scheduler')
+  .addEdge('scheduler', 'search')
   .addEdge('search', 'curate')
   .addEdge('curate', 'extract_topics')
   .addEdge('extract_topics', 'rank')
@@ -92,6 +106,9 @@ export async function runNewsCuration(): Promise<any> {
     const initialState = {
       userInterests: [],
       settingsLoaded: false,
+      scheduledInterests: [],
+      cooledDownInterests: [],
+      schedulingComplete: false,
       searchResults: [],
       searchComplete: false,
       curatedArticles: [],
@@ -109,6 +126,8 @@ export async function runNewsCuration(): Promise<any> {
     console.log('News curation workflow completed successfully');
     console.log('Final stats:', {
       interests: result.userInterests?.length || 0,
+      scheduledInterests: result.scheduledInterests?.length || 0,
+      cooledDownInterests: result.cooledDownInterests?.length || 0,
       searchResults: result.searchResults?.length || 0,
       curatedArticles: result.curatedArticles?.length || 0,
       duplicatesFiltered: result.duplicatesFiltered || 0,

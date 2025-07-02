@@ -7,7 +7,10 @@ export const CREATE_INTERESTS_TABLE = `
   CREATE TABLE IF NOT EXISTS Interests (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_new_article_at TIMESTAMP,
+    discovery_count INTEGER DEFAULT 0,
+    avg_discovery_interval_seconds REAL DEFAULT 0.0
   );
 `;
 
