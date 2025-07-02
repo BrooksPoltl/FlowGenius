@@ -212,10 +212,10 @@ export function ArticlesView({ onBriefingChange }: ArticlesViewProps) {
         // Reload articles after curation
         await loadArticles();
 
-        // Check if any new articles were found
-        if (result.data && result.data.newArticlesSaved === 0) {
+        // Check if any articles were found
+        if (result.data && (!result.data.curatedArticles || result.data.curatedArticles.length === 0)) {
           setError(
-            'No new articles found. Your interests might be on cooldown or all articles were duplicates.'
+            'No articles found. Your interests might be on cooldown or no relevant articles are available.'
           );
         }
       } else {
@@ -245,9 +245,9 @@ export function ArticlesView({ onBriefingChange }: ArticlesViewProps) {
         // Reset cooldown status since we bypassed it
         setCooldownStatus({ scheduled: [], cooledDown: [] });
 
-        if (result.data && result.data.newArticlesSaved === 0) {
+        if (result.data && (!result.data.curatedArticles || result.data.curatedArticles.length === 0)) {
           setError(
-            'No new articles found even with force refresh. This may indicate API issues or no new content is available.'
+            'No articles found even with force refresh. This may indicate API issues or no relevant content is available.'
           );
         }
       } else {

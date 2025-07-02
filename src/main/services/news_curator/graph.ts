@@ -215,24 +215,6 @@ export async function executeNewsCurationWorkflow(): Promise<WorkflowResult> {
     // Extract topics list for summary generation
     const extractedTopics = userInterests; // Use user interests as topics for now
 
-    // Save briefing to database (this completes the core workflow)
-    const briefingId = await saveBriefingToDatabase(
-      extractedTopics,
-      curationResult.curatedArticles
-    );
-    console.log(`💾 Saved briefing ${briefingId} to database`);
-
-    // Phase 2: Background summary generation (non-blocking)
-    // This happens asynchronously so users see articles immediately
-    generateSummaryInBackground(
-      briefingId,
-      curationResult.curatedArticles,
-      extractedTopics,
-      false // Don't force regeneration in normal workflow
-    ).catch(error => {
-      console.error('❌ Background summary generation failed:', error);
-    });
-
     console.log('✅ News curation workflow completed successfully');
 
     // Return the workflow result

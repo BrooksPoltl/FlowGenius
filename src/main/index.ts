@@ -44,6 +44,60 @@ makeAppWithSingleInstanceLock(async () => {
 });
 
 /**
+ * Helper function to create a briefing and start background summary generation
+ */
+async function createBriefingAndStartSummary(result: any): Promise<void> {
+  if (!result.curatedArticles || result.curatedArticles.length === 0) {
+    return;
+  }
+
+  const briefingTitle = new Date().toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+
+  const { getUserInterests } = await import('./services/settings');
+  const topics = getUserInterests();
+  
+  const insertBriefing = db.prepare(
+    'INSERT INTO Briefings (title, topics_json, articles_json) VALUES (?, ?, ?)'
+  );
+  const briefingResult = insertBriefing.run(briefingTitle, JSON.stringify(topics), JSON.stringify(result.curatedArticles));
+  const briefingId = Number(briefingResult.lastInsertRowid);
+
+  const insertBriefingArticle = db.prepare(
+    'INSERT INTO Briefing_Articles (briefing_id, article_id) VALUES (?, ?)'
+  );
+
+  const getArticleId = db.prepare(
+    'SELECT id FROM Articles WHERE url = ?'
+  );
+
+  for (const article of result.curatedArticles) {
+    const articleRow = getArticleId.get(article.url) as
+      | { id: number }
+      | undefined;
+    if (articleRow) {
+      insertBriefingArticle.run(briefingId, articleRow.id);
+    }
+  }
+  console.log(
+    `🗞️  Created briefing "${briefingTitle}" with ${result.curatedArticles.length} articles (${result.newArticlesSaved} new, ${result.duplicatesFiltered} duplicates filtered).`
+  );
+
+  // Start background summary generation for the briefing
+  const { generateSummaryInBackground } = await import(
+    './services/news_curator/graph'
+  );
+  
+  generateSummaryInBackground(briefingId, result.curatedArticles, topics, false)
+    .catch(error => {
+      console.error('❌ Background summary generation failed:', error);
+    });
+}
+
+/**
  * Sets up IPC handlers for interests CRUD operations
  */
 function setupInterestsIPC(): void {
@@ -153,6 +207,53 @@ function setupNewsIPC(): void {
       const result = await executeNewsCurationWorkflow();
       console.log('✅ News curation completed successfully');
 
+      // Create briefing when there are curated articles, not just new ones
+      if (result.curatedArticles && result.curatedArticles.length > 0) {
+        const briefingTitle = new Date().toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        });
+
+        const insertBriefing = db.prepare(
+          'INSERT INTO Briefings (title) VALUES (?)'
+        );
+        const briefingResult = insertBriefing.run(briefingTitle);
+        const briefingId = Number(briefingResult.lastInsertRowid);
+
+        const insertBriefingArticle = db.prepare(
+          'INSERT INTO Briefing_Articles (briefing_id, article_id) VALUES (?, ?)'
+        );
+
+        const getArticleId = db.prepare(
+          'SELECT id FROM Articles WHERE url = ?'
+        );
+
+        for (const article of result.curatedArticles) {
+          const articleRow = getArticleId.get(article.url) as
+            | { id: number }
+            | undefined;
+          if (articleRow) {
+            insertBriefingArticle.run(briefingId, articleRow.id);
+          }
+        }
+        console.log(
+          `🗞️  Created briefing "${briefingTitle}" with ${result.curatedArticles.length} articles (${result.newArticlesSaved} new, ${result.duplicatesFiltered} duplicates filtered).`
+        );
+
+        // Start background summary generation for the briefing
+        const { generateSummaryInBackground } = await import(
+          './services/news_curator/graph'
+        );
+        const { getUserInterests } = await import('./services/settings');
+        const topics = getUserInterests();
+        
+        generateSummaryInBackground(briefingId, result.curatedArticles, topics, false)
+          .catch(error => {
+            console.error('❌ Background summary generation failed:', error);
+          });
+      }
+
       return { success: true, data: result };
     } catch (error) {
       console.error('Error curating news:', error);
@@ -183,6 +284,53 @@ function setupNewsIPC(): void {
       );
       const result = await executeNewsCurationWorkflow();
       console.log('✅ Force refresh completed successfully');
+
+      // Create briefing when there are curated articles, not just new ones
+      if (result.curatedArticles && result.curatedArticles.length > 0) {
+        const briefingTitle = new Date().toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        });
+
+        const insertBriefing = db.prepare(
+          'INSERT INTO Briefings (title) VALUES (?)'
+        );
+        const briefingResult = insertBriefing.run(briefingTitle);
+        const briefingId = Number(briefingResult.lastInsertRowid);
+
+        const insertBriefingArticle = db.prepare(
+          'INSERT INTO Briefing_Articles (briefing_id, article_id) VALUES (?, ?)'
+        );
+
+        const getArticleId = db.prepare(
+          'SELECT id FROM Articles WHERE url = ?'
+        );
+
+        for (const article of result.curatedArticles) {
+          const articleRow = getArticleId.get(article.url) as
+            | { id: number }
+            | undefined;
+          if (articleRow) {
+            insertBriefingArticle.run(briefingId, articleRow.id);
+          }
+        }
+        console.log(
+          `🗞️  Created briefing "${briefingTitle}" with ${result.curatedArticles.length} articles (${result.newArticlesSaved} new, ${result.duplicatesFiltered} duplicates filtered).`
+        );
+
+        // Start background summary generation for the briefing
+        const { generateSummaryInBackground } = await import(
+          './services/news_curator/graph'
+        );
+        const { getUserInterests } = await import('./services/settings');
+        const topics = getUserInterests();
+        
+        generateSummaryInBackground(briefingId, result.curatedArticles, topics, false)
+          .catch(error => {
+            console.error('❌ Background summary generation failed:', error);
+          });
+      }
 
       return { success: true, data: result };
     } catch (error) {
@@ -307,8 +455,8 @@ function setupNewsIPC(): void {
 
       console.log(`📊 Workflow run statistics saved (duration: ${duration}ms)`);
 
-      // Archive the briefing
-      if (result.newArticlesSaved > 0) {
+      // Archive the briefing - Create briefing when there are curated articles, not just new ones
+      if (result.curatedArticles && result.curatedArticles.length > 0) {
         const briefingTitle = new Date().toLocaleDateString('en-US', {
           year: 'numeric',
           month: 'long',
@@ -319,7 +467,7 @@ function setupNewsIPC(): void {
           'INSERT INTO Briefings (title) VALUES (?)'
         );
         const briefingResult = insertBriefing.run(briefingTitle);
-        const briefingId = briefingResult.lastInsertRowid;
+        const briefingId = Number(briefingResult.lastInsertRowid);
 
         const insertBriefingArticle = db.prepare(
           'INSERT INTO Briefing_Articles (briefing_id, article_id) VALUES (?, ?)'
@@ -338,8 +486,20 @@ function setupNewsIPC(): void {
           }
         }
         console.log(
-          `🗞️  Archived briefing "${briefingTitle}" with ${result.curatedArticles.length} articles.`
+          `🗞️  Archived briefing "${briefingTitle}" with ${result.curatedArticles.length} articles (${result.newArticlesSaved} new, ${result.duplicatesFiltered} duplicates filtered).`
         );
+
+        // Start background summary generation for the briefing
+        const { generateSummaryInBackground } = await import(
+          './services/news_curator/graph'
+        );
+        const { getUserInterests } = await import('./services/settings');
+        const topics = getUserInterests();
+        
+        generateSummaryInBackground(briefingId, result.curatedArticles, topics, false)
+          .catch(error => {
+            console.error('❌ Background summary generation failed:', error);
+          });
       }
 
       // Get the newly curated articles with their personalization scores
