@@ -4,6 +4,7 @@
  */
 
 import { SchedulerState } from './scheduler';
+import db from '../../../db';
 
 export interface Article {
   title: string;
@@ -70,6 +71,21 @@ export async function searchAgent(state: any): Promise<any> {
         `❄️  ${cooledDownInterests.length} interests on cool-down: ${cooledDownInterests.join(', ')}`
       );
     }
+
+    // Record search attempt time for all scheduled interests
+    const currentTime = new Date().toISOString();
+    const updateSearchAttempt = db.prepare(`
+      UPDATE Interests 
+      SET last_search_attempt_at = ? 
+      WHERE name = ?
+    `);
+
+    for (const interest of interestsToSearch) {
+      updateSearchAttempt.run(currentTime, interest);
+    }
+    console.log(
+      `📝 Recorded search attempt time for ${interestsToSearch.length} interests`
+    );
 
     // Search for articles for each scheduled interest with rate limiting (1 TPS)
     for (let i = 0; i < interestsToSearch.length; i++) {

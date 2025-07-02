@@ -100,6 +100,14 @@ function runMigrations(): void {
       db.exec('ALTER TABLE Interests ADD COLUMN created_at TIMESTAMP');
       console.log('Added created_at column to Interests table');
     }
+
+    // Migration 002: Add search attempt tracking
+    if (!interestsColumnNames.includes('last_search_attempt_at')) {
+      db.exec(
+        'ALTER TABLE Interests ADD COLUMN last_search_attempt_at TIMESTAMP'
+      );
+      console.log('Added last_search_attempt_at column to Interests table');
+    }
   } catch (error) {
     console.error('Error running migrations:', error);
   }

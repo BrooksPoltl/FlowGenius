@@ -44,6 +44,7 @@ export async function curationAgent(state: any): Promise<any> {
     const curatedArticles: Article[] = [];
     let savedCount = 0;
     let duplicateCount = 0;
+    const interestsWithNewArticles = new Set<string>();
 
     // Check total articles before processing
     const countBefore = db
@@ -115,20 +116,9 @@ export async function curationAgent(state: any): Promise<any> {
         curatedArticles.push(article);
         savedCount++;
 
-        // Update discovery metrics for the source interest
+        // Track which interests have new articles (we'll update metrics once per interest)
         if (article.sourceInterest) {
-          try {
-            updateInterestDiscoveryMetrics(
-              article.sourceInterest,
-              getInterestData,
-              updateInterestMetrics
-            );
-          } catch (error) {
-            console.error(
-              `Error updating discovery metrics for interest "${article.sourceInterest}":`,
-              error
-            );
-          }
+          interestsWithNewArticles.add(article.sourceInterest);
         }
       } catch (error) {
         console.error(`Error processing article "${article.title}":`, error);
@@ -145,6 +135,22 @@ export async function curationAgent(state: any): Promise<any> {
     console.log(
       `📊 Expected change: +${savedCount}, Actual change: +${countAfter.count - countBefore.count}`
     );
+
+    // Update discovery metrics for interests that had new articles (once per interest)
+    for (const interestName of interestsWithNewArticles) {
+      try {
+        updateInterestDiscoveryMetrics(
+          interestName,
+          getInterestData,
+          updateInterestMetrics
+        );
+      } catch (error) {
+        console.error(
+          `Error updating discovery metrics for interest "${interestName}":`,
+          error
+        );
+      }
+    }
 
     console.log(
       `Curation complete: ${savedCount} new articles saved, ${duplicateCount} duplicates skipped`
@@ -201,32 +207,56 @@ function updateInterestDiscoveryMetrics(
   const newDiscoveryCount = currentData.discovery_count + 1;
   let newAvgInterval = currentData.avg_discovery_interval_seconds;
 
+  console.log(`🔄 Updating discovery metrics for "${interestName}":`);
+  console.log(`  📅 Current time: ${currentTime.toISOString()}`);
+  console.log(`  📊 Previous count: ${currentData.discovery_count}`);
+  console.log(`  📊 New count: ${newDiscoveryCount}`);
+
   // If this is not the first discovery, calculate the new average interval
   if (currentData.last_new_article_at && currentData.discovery_count > 0) {
     const lastDiscovery = new Date(currentData.last_new_article_at);
     const intervalSeconds =
       (currentTime.getTime() - lastDiscovery.getTime()) / 1000;
 
-    // Calculate running average: new_avg = ((old_avg * old_count) + new_interval) / new_count
-    newAvgInterval =
-      (currentData.avg_discovery_interval_seconds *
-        currentData.discovery_count +
-        intervalSeconds) /
-      newDiscoveryCount;
-
+    console.log(`  📅 Last discovery: ${currentData.last_new_article_at}`);
     console.log(
-      `📊 Interest "${interestName}": interval=${Math.round(intervalSeconds / 3600)}h, new_avg=${Math.round(newAvgInterval / 3600)}h`
+      `  ⏱️  Interval since last: ${Math.round(intervalSeconds / 3600)}h (${intervalSeconds} seconds)`
     );
+    console.log(
+      `  📊 Previous avg: ${Math.round(currentData.avg_discovery_interval_seconds / 3600)}h`
+    );
+
+    // Only update average if interval is positive (avoid negative intervals from same-batch processing)
+    if (intervalSeconds > 0) {
+      // Calculate running average: new_avg = ((old_avg * old_count) + new_interval) / new_count
+      newAvgInterval =
+        (currentData.avg_discovery_interval_seconds *
+          currentData.discovery_count +
+          intervalSeconds) /
+        newDiscoveryCount;
+
+      console.log(
+        `  📊 New avg: ${Math.round(newAvgInterval / 3600)}h (${newAvgInterval} seconds)`
+      );
+      console.log(
+        `  🧮 Formula: ((${currentData.avg_discovery_interval_seconds} * ${currentData.discovery_count}) + ${intervalSeconds}) / ${newDiscoveryCount} = ${newAvgInterval}`
+      );
+    } else {
+      // Keep the previous average if interval is zero/negative (same batch processing)
+      newAvgInterval = currentData.avg_discovery_interval_seconds;
+      console.log(
+        `  ⚠️  Zero/negative interval detected (${intervalSeconds}s), keeping previous avg: ${Math.round(newAvgInterval / 3600)}h`
+      );
+    }
   } else {
     // First discovery, set a default interval (24 hours)
     newAvgInterval = 24 * 3600; // 24 hours in seconds
-    console.log(
-      `📊 Interest "${interestName}": first discovery, setting default avg=24h`
-    );
+    console.log(`  🆕 First discovery, setting default avg=24h`);
   }
 
   // Update the database
   updateInterestMetrics.run(newDiscoveryCount, newAvgInterval, interestName);
+  console.log(`  ✅ Database updated with new metrics`);
 }
 
 /**

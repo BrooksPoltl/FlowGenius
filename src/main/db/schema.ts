@@ -10,7 +10,8 @@ export const CREATE_INTERESTS_TABLE = `
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_new_article_at TIMESTAMP,
     discovery_count INTEGER DEFAULT 0,
-    avg_discovery_interval_seconds REAL DEFAULT 0.0
+    avg_discovery_interval_seconds REAL DEFAULT 0.0,
+    last_search_attempt_at TIMESTAMP
   );
 `;
 
@@ -108,3 +109,13 @@ export const CREATE_WORKFLOW_RUNS_TABLE = `
     duration_ms INTEGER
   );
 `;
+
+export interface Interest {
+  id: number;
+  name: string;
+  created_at: string;
+  last_new_article_at: string | null;
+  discovery_count: number;
+  avg_discovery_interval_seconds: number;
+  last_search_attempt_at: string | null;
+}

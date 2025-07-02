@@ -41,6 +41,7 @@ export async function interestSchedulerAgent(state: any): Promise<any> {
     }
 
     console.log(`📅 Scheduling ${userInterests.length} interests...`);
+    console.log(`📅 Current time: ${new Date().toISOString()}`);
 
     const scheduledInterests: string[] = [];
     const cooledDownInterests: string[] = [];
@@ -51,7 +52,8 @@ export async function interestSchedulerAgent(state: any): Promise<any> {
         name,
         last_new_article_at,
         discovery_count,
-        avg_discovery_interval_seconds
+        avg_discovery_interval_seconds,
+        last_search_attempt_at
       FROM Interests 
       WHERE name IN (${userInterests.map(() => '?').join(',')})
     `);
@@ -61,9 +63,17 @@ export async function interestSchedulerAgent(state: any): Promise<any> {
       last_new_article_at: string | null;
       discovery_count: number;
       avg_discovery_interval_seconds: number;
+      last_search_attempt_at: string | null;
     }>;
 
     const currentTime = new Date();
+
+    console.log(`📊 Discovery data for all interests:`);
+    interestData.forEach(data => {
+      console.log(
+        `  - ${data.name}: last=${data.last_new_article_at}, count=${data.discovery_count}, avg=${Math.round(data.avg_discovery_interval_seconds / 3600)}h`
+      );
+    });
 
     for (const interest of userInterests) {
       const data = interestData.find(d => d.name === interest);
@@ -77,44 +87,80 @@ export async function interestSchedulerAgent(state: any): Promise<any> {
         continue;
       }
 
-      // If no discovery history, schedule it (first time or no articles found yet)
-      if (
-        !data.last_new_article_at ||
-        data.discovery_count === 0 ||
-        data.avg_discovery_interval_seconds === 0
-      ) {
+      // If no search history, schedule it (first time)
+      if (!data.last_search_attempt_at) {
         console.log(
-          `🆕 Interest "${interest}" has no discovery history, scheduling`
+          `🆕 Interest "${interest}" has never been searched, scheduling`
         );
         scheduledInterests.push(interest);
         continue;
       }
 
-      // Calculate time since last discovery
-      const lastDiscovery = new Date(data.last_new_article_at);
-      const timeSinceLastDiscovery =
-        (currentTime.getTime() - lastDiscovery.getTime()) / 1000; // in seconds
+      // Use search attempt time for cool-down, but fall back to discovery time if needed
+      const lastSearchTime =
+        data.last_search_attempt_at || data.last_new_article_at;
 
-      // Calculate cool-down threshold (3x average discovery interval)
-      const coolDownThreshold = data.avg_discovery_interval_seconds * 3;
-
-      if (timeSinceLastDiscovery >= coolDownThreshold) {
+      if (!lastSearchTime) {
         console.log(
-          `✅ Interest "${interest}" ready for search (${Math.round(timeSinceLastDiscovery / 3600)}h since last vs ${Math.round(coolDownThreshold / 3600)}h threshold)`
+          `🆕 Interest "${interest}" has no search history, scheduling`
         );
         scheduledInterests.push(interest);
+        continue;
+      }
+
+      // Calculate time since last search attempt
+      const lastSearch = new Date(lastSearchTime);
+      const timeSinceLastSearch =
+        (currentTime.getTime() - lastSearch.getTime()) / 1000; // in seconds
+
+      // Calculate cool-down threshold
+      // If we have discovery data, use 3x average discovery interval, otherwise use 2 hours default
+      const coolDownThreshold =
+        data.avg_discovery_interval_seconds > 0
+          ? data.avg_discovery_interval_seconds * 3
+          : 2 * 3600; // 2 hours default
+
+      console.log(`🔍 Analyzing "${interest}":`);
+      console.log(`  📅 Last search attempt: ${lastSearchTime}`);
+      console.log(
+        `  ⏱️  Time since last search: ${Math.round(timeSinceLastSearch / 3600)}h (${Math.round(timeSinceLastSearch)} seconds)`
+      );
+      console.log(
+        `  📊 Average discovery interval: ${Math.round(data.avg_discovery_interval_seconds / 3600)}h (${data.avg_discovery_interval_seconds} seconds)`
+      );
+      console.log(
+        `  🚫 Cool-down threshold: ${Math.round(coolDownThreshold / 3600)}h (${coolDownThreshold} seconds)`
+      );
+      console.log(
+        `  🧮 Calculation: ${Math.round(timeSinceLastSearch)} >= ${coolDownThreshold} ? ${timeSinceLastSearch >= coolDownThreshold}`
+      );
+
+      if (timeSinceLastSearch >= coolDownThreshold) {
+        console.log(`  ✅ RESULT: Ready for search!`);
+        scheduledInterests.push(interest);
       } else {
-        const remainingCoolDown = coolDownThreshold - timeSinceLastDiscovery;
+        const remainingCoolDown = coolDownThreshold - timeSinceLastSearch;
         console.log(
-          `❄️  Interest "${interest}" on cool-down (${Math.round(remainingCoolDown / 3600)}h remaining)`
+          `  ❄️  RESULT: On cool-down, ${Math.round(remainingCoolDown / 3600)}h remaining`
         );
         cooledDownInterests.push(interest);
       }
+      console.log(``);
     }
 
+    console.log(`📅 Scheduling complete:`);
     console.log(
-      `📅 Scheduling complete: ${scheduledInterests.length} active, ${cooledDownInterests.length} on cool-down`
+      `  ✅ ${scheduledInterests.length} interests scheduled for search: ${scheduledInterests.join(', ')}`
     );
+    console.log(
+      `  ❄️  ${cooledDownInterests.length} interests on cool-down: ${cooledDownInterests.join(', ')}`
+    );
+
+    if (cooledDownInterests.length > 0) {
+      console.log(
+        `  💡 Cool-down interests will be reconsidered when their 3x average interval expires`
+      );
+    }
 
     return {
       scheduledInterests,
