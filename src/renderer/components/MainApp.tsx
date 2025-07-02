@@ -30,6 +30,8 @@ export function MainApp() {
 
   // Shared state that persists across screen navigation
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedArticles, setSelectedArticles] = useState<Article[] | null>(null);
+  const [selectedBriefingId, setSelectedBriefingId] = useState<number | null>(null);
 
   useEffect(() => {
     // Listen for summary ready notifications
@@ -51,9 +53,13 @@ export function MainApp() {
   /**
    * Handles when a briefing is selected from the history sidebar
    */
-  const handleBriefingSelect = (briefingArticles: Article[]) => {
-    // Handle briefing selection - articles are managed by ArticlesView component
+  const handleBriefingSelect = (briefingArticles: Article[], briefingId: number) => {
     console.log('Selected briefing with', briefingArticles.length, 'articles');
+    setSelectedArticles(briefingArticles);
+    setSelectedBriefingId(briefingId);
+    setCurrentBriefingId(briefingId);
+    // Switch to articles tab when a briefing is selected
+    setActiveTab('articles');
   };
 
   return (
@@ -167,7 +173,15 @@ export function MainApp() {
               {/* Tab Content */}
               <div className="flex-1 overflow-hidden">
                 {activeTab === 'articles' ? (
-                  <ArticlesView onBriefingChange={setCurrentBriefingId} />
+                  <ArticlesView 
+                    onBriefingChange={setCurrentBriefingId}
+                    selectedArticles={selectedArticles}
+                    selectedBriefingId={selectedBriefingId}
+                    onClearSelection={() => {
+                      setSelectedArticles(null);
+                      setSelectedBriefingId(null);
+                    }}
+                  />
                 ) : (
                   <SummaryView
                     briefingId={currentBriefingId}

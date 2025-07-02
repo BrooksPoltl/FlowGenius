@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { ArticleCard } from './ui/ArticleCard';
+import { ArticleCard, Article as CardArticle } from './ui/ArticleCard';
 
 interface Article {
   id: string;
@@ -19,9 +19,17 @@ interface Article {
 
 interface ArticlesViewProps {
   onBriefingChange: (briefingId: number | null) => void;
+  selectedArticles?: CardArticle[] | null;
+  selectedBriefingId?: number | null;
+  onClearSelection?: () => void;
 }
 
-export function ArticlesView({ onBriefingChange }: ArticlesViewProps) {
+export function ArticlesView({ 
+  onBriefingChange, 
+  selectedArticles, 
+  selectedBriefingId, 
+  onClearSelection 
+}: ArticlesViewProps) {
   console.log('🔍 [RENDERER] ArticlesView component rendering...');
 
   const [articles, setArticles] = useState<Article[]>([]);
@@ -293,12 +301,32 @@ export function ArticlesView({ onBriefingChange }: ArticlesViewProps) {
     }
   };
 
-  // Load articles on component mount and check cooldown status
+  // Handle selected articles from sidebar or load latest articles
   useEffect(() => {
-    console.log('🔍 [RENDERER] useEffect triggered, calling loadArticles...');
-    loadArticles();
+    if (selectedArticles && selectedBriefingId) {
+      // Use selected articles from sidebar
+      console.log('🔍 [RENDERER] Using selected articles from sidebar');
+      setArticles(selectedArticles.map((article, index) => ({
+        id: article.url || index.toString(),
+        title: article.title,
+        description: article.description,
+        url: article.url,
+        imageUrl: article.thumbnail,
+        publishedAt: article.published_at || '',
+        source: article.source,
+        score: article.personalizationScore,
+      })));
+      setCurrentBriefingId(selectedBriefingId);
+      onBriefingChange(selectedBriefingId);
+      // Don't set lastUpdated for selected articles since we don't have creation time
+      setLastUpdated(null);
+    } else {
+      // Load latest articles
+      console.log('🔍 [RENDERER] Loading latest articles');
+      loadArticles();
+    }
     checkCooldownStatus();
-  }, [loadArticles, checkCooldownStatus]);
+  }, [selectedArticles, selectedBriefingId, onBriefingChange, loadArticles, checkCooldownStatus]);
 
   // Add a simple test to verify IPC is working
   useEffect(() => {
@@ -430,7 +458,7 @@ export function ArticlesView({ onBriefingChange }: ArticlesViewProps) {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
-              Your Curated Articles
+              {selectedArticles ? 'Historical Articles' : 'Your Curated Articles'}
             </h1>
             {lastUpdated && (
               <p className="text-sm text-gray-500 mt-1">
@@ -461,6 +489,14 @@ export function ArticlesView({ onBriefingChange }: ArticlesViewProps) {
             )}
           </div>
           <div className="flex space-x-3">
+            {selectedArticles && onClearSelection && (
+              <button
+                onClick={onClearSelection}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Back to Latest
+              </button>
+            )}
             <button
               onClick={handleTestSummary}
               disabled={generatingSummary || !currentBriefingId}
@@ -475,32 +511,36 @@ export function ArticlesView({ onBriefingChange }: ArticlesViewProps) {
                 'Test Summary'
               )}
             </button>
-            <button
-              onClick={handleCurateNews}
-              disabled={loading}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-            >
-              {loading ? (
-                <>
-                  <div className="animate-spin -ml-1 mr-3 h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
-                  Refreshing...
-                </>
-              ) : (
-                'Refresh'
-              )}
-            </button>
-            <button
-              onClick={handleForceRefresh}
-              disabled={loading}
-              className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-              title="Force refresh bypasses cooldown periods and searches all interests"
-            >
-              {loading ? (
-                <div className="animate-spin -ml-1 mr-2 h-4 w-4 border-2 border-gray-600 border-t-transparent rounded-full" />
-              ) : (
-                'Force'
-              )}
-            </button>
+            {!selectedArticles && (
+              <>
+                <button
+                  onClick={handleCurateNews}
+                  disabled={loading}
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                >
+                  {loading ? (
+                    <>
+                      <div className="animate-spin -ml-1 mr-3 h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                      Refreshing...
+                    </>
+                  ) : (
+                    'Refresh'
+                  )}
+                </button>
+                <button
+                  onClick={handleForceRefresh}
+                  disabled={loading}
+                  className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                  title="Force refresh bypasses cooldown periods and searches all interests"
+                >
+                  {loading ? (
+                    <div className="animate-spin -ml-1 mr-2 h-4 w-4 border-2 border-gray-600 border-t-transparent rounded-full" />
+                  ) : (
+                    'Force'
+                  )}
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>

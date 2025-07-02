@@ -15,7 +15,7 @@ interface Briefing {
 }
 
 interface HistorySidebarProps {
-  onBriefingSelect: (articles: Article[]) => void;
+  onBriefingSelect: (articles: Article[], briefingId: number) => void;
   isLoading: boolean;
   setIsLoading: React.Dispatch<React.SetStateAction<boolean>>;
   setError: React.Dispatch<React.SetStateAction<string | null>>;
@@ -79,7 +79,7 @@ export function HistorySidebar({
           personalizationScore: article.personalization_score,
         }));
 
-        onBriefingSelect(mappedArticles);
+        onBriefingSelect(mappedArticles, briefingId);
       } else {
         setError(result.error || 'Failed to load briefing articles');
       }
