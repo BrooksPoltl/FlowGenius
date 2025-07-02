@@ -77,7 +77,10 @@ export const CREATE_BRIEFINGS_TABLE = `
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     title TEXT NOT NULL,
     summary TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    topics_json TEXT NOT NULL,
+    articles_json TEXT NOT NULL,
+    summary_json TEXT
   );
 `;
 
@@ -118,4 +121,12 @@ export interface Interest {
   discovery_count: number;
   avg_discovery_interval_seconds: number;
   last_search_attempt_at: string | null;
+}
+
+export interface Briefing {
+  id: number;
+  created_at: string;
+  topics_json: string; // JSON array of topic strings
+  articles_json: string; // JSON array of Article objects
+  summary_json?: string; // JSON object containing executive summary
 }

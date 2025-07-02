@@ -1,4 +1,4 @@
-import { app, ipcMain } from 'electron';
+import { app, ipcMain, BrowserWindow } from 'electron';
 import { config } from 'dotenv';
 
 import { makeAppWithSingleInstanceLock } from 'lib/electron-app/factories/app/instance';
@@ -10,10 +10,10 @@ import {
   addInterest,
   deleteInterest,
 } from './services/settings';
-import { runNewsCuration } from './services/news_curator/graph';
 import { affinityAgent } from './services/news_curator/agents/affinity';
 import { getTopicRecommendations } from './services/recommendations';
 import db from './db';
+import { DatabaseWriterAgent } from './services/news_curator/agents/database_writer';
 
 // Load environment variables from .env file
 config();
@@ -27,6 +27,9 @@ makeAppWithSingleInstanceLock(async () => {
   // Initialize database and settings
   console.log('📊 Initializing database and settings...');
   initializeSettings();
+
+  // Initialize database writer agent
+  // DatabaseWriterAgent methods are now static, no need to instantiate
 
   // Set up IPC handlers for interests management and news curation
   console.log('🔗 Setting up IPC handlers...');
@@ -93,13 +96,121 @@ function setupInterestsIPC(): void {
  */
 function setupNewsIPC(): void {
   console.log('🔗 Starting setupNewsIPC function...');
+  // Get latest briefing
+  ipcMain.handle('get-latest-briefing', async () => {
+    try {
+      console.log('📰 [IPC] Getting latest briefing...');
+      console.log('📰 [IPC] Database object:', typeof db, !!db);
+
+      const latestBriefing = db
+        .prepare(
+          `
+        SELECT id, title, created_at,
+               (SELECT COUNT(*) FROM Briefing_Articles WHERE briefing_id = Briefings.id) as article_count
+        FROM Briefings 
+        ORDER BY created_at DESC 
+        LIMIT 1
+      `
+        )
+        .get();
+
+      console.log(
+        '📰 [IPC] Latest briefing raw result:',
+        JSON.stringify(latestBriefing, null, 2)
+      );
+
+      if (!latestBriefing) {
+        console.log('📰 [IPC] No briefings found in database');
+        return { success: false, error: 'No briefings found' };
+      }
+
+      const result = { success: true, data: latestBriefing };
+      console.log(
+        '📰 [IPC] Returning briefing result:',
+        JSON.stringify(result, null, 2)
+      );
+      return result;
+    } catch (error) {
+      console.error('❌ [IPC] Error getting latest briefing:', error);
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Failed to get latest briefing',
+      };
+    }
+  });
+
+  // Curate news (trigger workflow)
+  ipcMain.handle('curate-news', async () => {
+    try {
+      console.log('📰 Starting news curation workflow...');
+      const { executeNewsCurationWorkflow } = await import(
+        './services/news_curator/graph'
+      );
+      const result = await executeNewsCurationWorkflow();
+      console.log('✅ News curation completed successfully');
+
+      return { success: true, data: result };
+    } catch (error) {
+      console.error('Error curating news:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to curate news',
+      };
+    }
+  });
+
+  // Record article interaction
+  ipcMain.handle(
+    'record-article-interaction',
+    async (_, articleUrl: string, interactionType: string) => {
+      try {
+        console.log(
+          `👆 Recording ${interactionType} interaction on article: ${articleUrl}`
+        );
+
+        // Get article ID from URL
+        const article = db
+          .prepare('SELECT id FROM Articles WHERE url = ?')
+          .get(articleUrl) as { id: number } | undefined;
+
+        if (!article) {
+          return { success: false, error: 'Article not found' };
+        }
+
+        // Record the interaction
+        const insertInteraction = db.prepare(`
+        INSERT INTO Interactions (article_id, interaction_type)
+        VALUES (?, ?)
+      `);
+        insertInteraction.run(article.id, interactionType);
+
+        return { success: true };
+      } catch (error) {
+        console.error('Error recording article interaction:', error);
+        return {
+          success: false,
+          error:
+            error instanceof Error
+              ? error.message
+              : 'Failed to record interaction',
+        };
+      }
+    }
+  );
+
   // Run the daily news curation workflow
   ipcMain.handle('get-daily-news', async () => {
     const startTime = Date.now();
 
     try {
       console.log('📰 Starting news curation workflow...');
-      const result = await runNewsCuration();
+      const { executeNewsCurationWorkflow } = await import(
+        './services/news_curator/graph'
+      );
+      const result = await executeNewsCurationWorkflow();
       console.log('✅ News curation completed successfully');
 
       const endTime = Date.now();
@@ -443,7 +554,26 @@ function setupNewsIPC(): void {
   console.log('🔗 Registering get-briefing-articles IPC handler...');
   ipcMain.handle('get-briefing-articles', async (_, briefingId: number) => {
     try {
-      console.log(`📰 Fetching articles for briefing ID: ${briefingId}...`);
+      console.log(
+        `📰 [IPC] Fetching articles for briefing ID: ${briefingId}...`
+      );
+      console.log(`📰 [IPC] Database object:`, typeof db, !!db);
+
+      // First check if the briefing exists
+      const briefingExists = db
+        .prepare('SELECT id FROM Briefings WHERE id = ?')
+        .get(briefingId);
+      console.log(`📰 [IPC] Briefing ${briefingId} exists:`, !!briefingExists);
+
+      // Check how many links exist for this briefing
+      const linkCount = db
+        .prepare(
+          'SELECT COUNT(*) as count FROM Briefing_Articles WHERE briefing_id = ?'
+        )
+        .get(briefingId) as { count: number };
+      console.log(
+        `📰 [IPC] Found ${linkCount.count} article links for briefing ${briefingId}`
+      );
 
       const articles = db
         .prepare(
@@ -458,12 +588,22 @@ function setupNewsIPC(): void {
         )
         .all(briefingId);
 
+      console.log(`📰 [IPC] Query returned ${articles.length} articles`);
+      console.log(
+        `📰 [IPC] First article:`,
+        articles[0] ? JSON.stringify(articles[0], null, 2) : 'None'
+      );
+
       return {
         success: true,
         data: articles,
       };
     } catch (error) {
-      console.error('Error getting briefing articles:', error);
+      console.error('❌ [IPC] Error getting briefing articles:', error);
+      console.error(
+        '❌ [IPC] Error stack:',
+        error instanceof Error ? error.stack : 'No stack'
+      );
       return {
         success: false,
         error:
@@ -549,4 +689,110 @@ function setupNewsIPC(): void {
       }
     }
   );
+
+  // Summary IPC handlers
+  ipcMain.handle('get-summary', async (_, briefingId: number) => {
+    try {
+      const briefing = DatabaseWriterAgent.getBriefingWithSummary(briefingId);
+      if (!briefing) return null;
+
+      return DatabaseWriterAgent.parseSummaryFromBriefing(briefing);
+    } catch (error) {
+      console.error('Error getting summary:', error);
+      throw error;
+    }
+  });
+
+  ipcMain.handle('get-summary-stats', async () => {
+    try {
+      return DatabaseWriterAgent.getSummaryStats();
+    } catch (error) {
+      console.error('Error getting summary stats:', error);
+      throw error;
+    }
+  });
+
+  // Manual summary generation handler for testing
+  ipcMain.handle('generate-summary', async (_, briefingId: number) => {
+    try {
+      console.log(
+        `🧪 Manual summary generation requested for briefing ${briefingId}`
+      );
+
+      // Check if briefing exists first
+      const briefingExists = db
+        .prepare('SELECT id FROM Briefings WHERE id = ?')
+        .get(briefingId);
+
+      if (!briefingExists) {
+        return { success: false, error: 'Briefing not found' };
+      }
+
+      // Get briefing articles
+      const articles = db
+        .prepare(
+          `
+          SELECT a.url, a.title, a.description, a.source, a.published_at, 
+                 a.thumbnail_url, a.personalization_score
+          FROM Articles a
+          JOIN Briefing_Articles ba ON a.id = ba.article_id
+          WHERE ba.briefing_id = ?
+          ORDER BY a.personalization_score DESC, a.fetched_at DESC
+        `
+        )
+        .all(briefingId);
+
+      if (articles.length === 0) {
+        return { success: false, error: 'No articles found for briefing' };
+      }
+
+      // Get user interests as topics
+      const { getUserInterests } = await import('./services/settings');
+      const topics = getUserInterests();
+
+      console.log(
+        `🧪 Starting manual summary generation with ${articles.length} articles and ${topics.length} topics`
+      );
+
+      // Import the background generation function
+      const { generateSummaryInBackground } = await import(
+        './services/news_curator/graph'
+      );
+
+      // Start the background process with force=true to regenerate
+      generateSummaryInBackground(briefingId, articles, topics, true)
+        .then(() => {
+          console.log(
+            `🧪 Manual summary generation completed for briefing ${briefingId}`
+          );
+        })
+        .catch(error => {
+          console.error(
+            `🧪 Manual summary generation failed for briefing ${briefingId}:`,
+            error
+          );
+        });
+
+      return { success: true, message: 'Summary generation started (force)' };
+    } catch (error) {
+      console.error('Error starting manual summary generation:', error);
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Failed to start summary generation',
+      };
+    }
+  });
+}
+
+// Function to notify renderer when summary is ready (exported for use in graph)
+export function notifyRendererSummaryReady(briefingId: number): void {
+  const mainWindow = BrowserWindow.getAllWindows().find(
+    (win: BrowserWindow) => !win.isDestroyed()
+  );
+  if (mainWindow) {
+    mainWindow.webContents.send('summary-ready', briefingId);
+  }
 }

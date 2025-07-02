@@ -4,12 +4,16 @@
  * Manages shared state to persist across screen switches
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { TrendingUp, BarChart3, Menu, X } from 'lucide-react';
 
 import { MainScreen } from '../screens/main';
 import { DashboardScreen } from '../screens/dashboard';
+import { InterestsModal } from './InterestsModal';
+import { RecommendedTopics } from './RecommendedTopics';
 import { HistorySidebar } from './HistorySidebar';
+import { ArticlesView } from './ArticlesView';
+import { SummaryView } from './SummaryView';
 import { Article } from './ui/ArticleCard';
 
 type AppScreen = 'news' | 'dashboard';
@@ -27,12 +31,36 @@ interface NewsStats {
 export function MainApp() {
   const [currentScreen, setCurrentScreen] = useState<AppScreen>('news');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [activeTab, setActiveTab] = useState<'articles' | 'summary'>(
+    'articles'
+  );
+  const [currentBriefingId, setCurrentBriefingId] = useState<number | null>(
+    null
+  );
+  const [summaryReady, setSummaryReady] = useState(false);
 
   // Shared state that persists across screen navigation
   const [articles, setArticles] = useState<Article[]>([]);
   const [stats, setStats] = useState<NewsStats | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Listen for summary ready notifications
+    const unsubscribe = window.electronAPI.onSummaryReady(
+      (briefingId: number) => {
+        if (briefingId === currentBriefingId) {
+          setSummaryReady(true);
+        }
+      }
+    );
+
+    return () => {
+      if (typeof unsubscribe === 'function') {
+        unsubscribe();
+      }
+    };
+  }, [currentBriefingId]);
 
   /**
    * Handles when a briefing is selected from the history sidebar
@@ -105,16 +133,53 @@ export function MainApp() {
         {/* Content */}
         <main className="flex-1 overflow-auto">
           {currentScreen === 'news' && (
-            <MainScreen
-              articles={articles}
-              setArticles={setArticles}
-              stats={stats}
-              setStats={setStats}
-              isLoading={isLoading}
-              setIsLoading={setIsLoading}
-              error={error}
-              setError={setError}
-            />
+            <div className="flex-1 flex flex-col">
+              {/* Tab Navigation */}
+              <div className="bg-white border-b border-gray-200">
+                <div className="px-6 py-3">
+                  <div className="flex space-x-4">
+                    <button
+                      onClick={() => setActiveTab('articles')}
+                      className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                        activeTab === 'articles'
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                    >
+                      Articles
+                    </button>
+                    <button
+                      onClick={() => {
+                        setActiveTab('summary');
+                        setSummaryReady(false); // Reset notification when viewing summary
+                      }}
+                      className={`px-4 py-2 text-sm font-medium rounded-md transition-colors relative ${
+                        activeTab === 'summary'
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                    >
+                      Summary
+                      {summaryReady && activeTab !== 'summary' && (
+                        <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Tab Content */}
+              <div className="flex-1 overflow-hidden">
+                {activeTab === 'articles' ? (
+                  <ArticlesView onBriefingChange={setCurrentBriefingId} />
+                ) : (
+                  <SummaryView
+                    briefingId={currentBriefingId}
+                    summaryReady={summaryReady}
+                  />
+                )}
+              </div>
+            </div>
           )}
           {currentScreen === 'dashboard' && <DashboardScreen />}
         </main>

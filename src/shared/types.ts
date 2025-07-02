@@ -16,3 +16,23 @@ export interface WindowCreationByIPC {
   window(): BrowserWindowOrNull;
   callback(window: BrowserWindow, event: IpcMainInvokeEvent): void;
 }
+
+// News curation types
+export interface Article {
+  id: string;
+  title: string;
+  description: string;
+  url: string;
+  imageUrl?: string;
+  publishedAt: string;
+  source: string;
+  score?: number;
+}
+
+export interface Briefing {
+  id: number;
+  created_at: string;
+  topics_json: string; // JSON array of topic strings
+  articles_json: string; // JSON array of Article objects
+  summary_json?: string; // JSON object containing executive summary
+}

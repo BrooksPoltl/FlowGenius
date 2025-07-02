@@ -68,6 +68,29 @@ Users are inundated with high-volume information from countless sources, making 
 - **SQLite Database**: Fast, local data storage with no external dependencies
 - **Cross-Platform**: Works on Windows, macOS, and Linux
 
+### 📰 Executive Summary (NEW!)
+- **Morning Brew Style Briefings**: Get witty, conversational summaries of your curated articles
+- **Main Stories**: In-depth summaries of the most important articles with key takeaways
+- **Quick Bites**: Snappy one-line summaries of secondary stories
+- **Smart Content Scraping**: Respects robots.txt and implements rate limiting
+- **Background Processing**: Summaries generate in the background so you see articles immediately
+
+### 🤖 Multi-Agent Architecture
+- **Interest Scheduler**: Manages search timing and cool-down periods
+- **Search Agent**: Finds relevant articles using Brave Search API
+- **Curation Agent**: Filters and processes articles for quality
+- **Topic Extractor**: Identifies key themes and topics
+- **Ranking Agent**: Scores articles based on your preferences
+- **Scraper Agent**: Extracts full article content ethically
+- **Summarizer Agent**: Creates engaging executive summaries
+- **Database Writer**: Manages atomic data operations
+
+### 💾 Data Management
+- **SQLite Database**: Local storage with automatic migrations
+- **Briefing History**: Track your reading patterns over time
+- **Interest Analytics**: See which topics perform best for you
+- **Cleanup Automation**: Automatic cleanup of old briefings to prevent bloat
+
 ---
 
 ## 🚀 Getting Started

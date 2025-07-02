@@ -26,6 +26,14 @@ const API = {
 
   // News curation
   getDailyNews: () => ipcRenderer.invoke('get-daily-news'),
+  getLatestBriefing: () => ipcRenderer.invoke('get-latest-briefing'),
+  curateNews: () => ipcRenderer.invoke('curate-news'),
+  recordArticleInteraction: (articleUrl: string, interactionType: string) =>
+    ipcRenderer.invoke(
+      'record-article-interaction',
+      articleUrl,
+      interactionType
+    ),
 
   // User interactions for personalization
   handleInteraction: (
@@ -47,6 +55,20 @@ const API = {
   // Article interactions
   getArticleInteractions: (articleUrls: string[]) =>
     ipcRenderer.invoke('get-article-interactions', articleUrls),
+
+  // Summary operations
+  getSummary: (briefingId: number) =>
+    ipcRenderer.invoke('get-summary', briefingId),
+
+  generateSummary: (briefingId: number) =>
+    ipcRenderer.invoke('generate-summary', briefingId),
+
+  onSummaryReady: (callback: (briefingId: number) => void) => {
+    ipcRenderer.on('summary-ready', (_, briefingId) => callback(briefingId));
+    return () => ipcRenderer.removeAllListeners('summary-ready');
+  },
+
+  getSummaryStats: () => ipcRenderer.invoke('get-summary-stats'),
 };
 
 console.log('🔧 API object created:', Object.keys(API));

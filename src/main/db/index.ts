@@ -3,7 +3,7 @@
  * Initializes SQLite database and creates necessary tables
  */
 
-import Database from 'better-sqlite3';
+import Database, { Database as DatabaseType } from 'better-sqlite3';
 import path from 'path';
 import { app } from 'electron';
 import {
@@ -17,6 +17,8 @@ import {
   CREATE_BRIEFING_ARTICLES_TABLE,
   CREATE_WORKFLOW_RUNS_TABLE,
 } from './schema';
+import { up as migration003Up } from './migrations/003_add_summary_column';
+import { up as migration004Up } from './migrations/004_add_briefing_json_columns';
 
 // Get the path to the user data directory
 const userDataPath = app.getPath('userData');
@@ -42,14 +44,14 @@ db.exec(CREATE_BRIEFING_ARTICLES_TABLE);
 db.exec(CREATE_WORKFLOW_RUNS_TABLE);
 
 // Run migrations to add missing columns if they don't exist
-runMigrations();
+runMigrations(db);
 
 console.log('Database initialized at:', dbPath);
 
 /**
  * Runs database migrations to update schema
  */
-function runMigrations(): void {
+function runMigrations(db: DatabaseType): void {
   try {
     // Check if personalization_score column exists, if not add it
     const columns = db.pragma('table_info(Articles)') as Array<{
@@ -107,6 +109,35 @@ function runMigrations(): void {
         'ALTER TABLE Interests ADD COLUMN last_search_attempt_at TIMESTAMP'
       );
       console.log('Added last_search_attempt_at column to Interests table');
+    }
+
+    // Migration 003: Add summary column to Briefings
+    const summaryColumnExists = db
+      .prepare(
+        `
+      SELECT COUNT(*) as count 
+      FROM pragma_table_info('Briefings') 
+      WHERE name = 'summary_json'
+    `
+      )
+      .get() as { count: number };
+
+    if (summaryColumnExists.count === 0) {
+      console.log('Running migration 003: Add summary column to Briefings...');
+      migration003Up(db);
+      console.log('Migration 003 completed');
+    }
+
+    // Migration 004: Add JSON columns to Briefings
+    const briefingsColumns = db.pragma('table_info(Briefings)') as Array<{
+      name: string;
+    }>;
+    const briefingsColumnNames = briefingsColumns.map(col => col.name);
+
+    if (!briefingsColumnNames.includes('topics_json') || !briefingsColumnNames.includes('articles_json')) {
+      console.log('Running migration 004: Add JSON columns to Briefings...');
+      migration004Up(db);
+      console.log('Migration 004 completed');
     }
   } catch (error) {
     console.error('Error running migrations:', error);
