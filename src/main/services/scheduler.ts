@@ -95,7 +95,8 @@ export class SchedulerService {
       };
 
       this.activeJobs.set('morning', job);
-      console.log(`⏰ Scheduled morning briefing at ${time} (${cronExpression})`);
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      console.log(`⏰ Scheduled morning briefing at ${time} (${cronExpression}) in timezone ${timezone}`);
     } catch (error) {
       console.error('⏰ Error scheduling morning briefing:', error);
     }
@@ -124,7 +125,8 @@ export class SchedulerService {
       };
 
       this.activeJobs.set('evening', job);
-      console.log(`⏰ Scheduled evening briefing at ${time} (${cronExpression})`);
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      console.log(`⏰ Scheduled evening briefing at ${time} (${cronExpression}) in timezone ${timezone}`);
     } catch (error) {
       console.error('⏰ Error scheduling evening briefing:', error);
     }

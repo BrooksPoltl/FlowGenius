@@ -26,7 +26,7 @@ function createSystemTray() {
     {
       label: 'Show FlowGenius',
       click: () => {
-        if (mainWindow) {
+        if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.show();
           mainWindow.focus();
         }
@@ -46,7 +46,7 @@ function createSystemTray() {
   
   // Show window when tray icon is clicked
   tray.on('click', () => {
-    if (mainWindow) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
       if (mainWindow.isVisible()) {
         mainWindow.hide();
       } else {
@@ -78,8 +78,8 @@ export async function makeAppSetup(createWindow: () => Promise<BrowserWindow>) {
       event.preventDefault();
       window.hide();
       
-      // Show notification on first minimize
-      if (tray && !window.isMinimized()) {
+      // Show notification on first minimize (only on Windows/Linux where displayBalloon exists)
+      if (tray && !window.isMinimized() && process.platform === 'win32') {
         tray.displayBalloon({
           title: 'FlowGenius',
           content: 'FlowGenius is running in the background. Click the tray icon to open.',

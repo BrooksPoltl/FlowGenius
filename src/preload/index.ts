@@ -79,6 +79,9 @@ const API = {
   updateSettings: (settings: any) => ipcRenderer.invoke('settings:update', settings),
   getSetting: (key: string) => ipcRenderer.invoke('settings:get-setting', key),
   setSetting: (key: string, value: any) => ipcRenderer.invoke('settings:set-setting', key, value),
+
+  // Scheduler testing
+  triggerManualBriefing: () => ipcRenderer.invoke('scheduler:trigger-manual'),
 };
 
 console.log('🔧 API object created:', Object.keys(API));

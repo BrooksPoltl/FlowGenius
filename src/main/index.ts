@@ -1080,6 +1080,18 @@ function setupSettingsIPC(): void {
       return { success: false, error: `Failed to set setting ${key}` };
     }
   });
+
+  // Manual trigger for testing scheduler
+  ipcMain.handle('scheduler:trigger-manual', async () => {
+    try {
+      const scheduler = SchedulerService.getInstance();
+      await scheduler.triggerManualBriefing();
+      return { success: true };
+    } catch (error) {
+      console.error('Error triggering manual briefing:', error);
+      return { success: false, error: 'Failed to trigger manual briefing' };
+    }
+  });
 }
 
 // Function to notify renderer when summary is ready (exported for use in graph)

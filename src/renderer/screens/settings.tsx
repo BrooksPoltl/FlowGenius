@@ -35,6 +35,7 @@ export function SettingsScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [isTestingScheduler, setIsTestingScheduler] = useState(false);
 
   /**
    * Load settings and interests on component mount
@@ -146,6 +147,29 @@ export function SettingsScreen() {
       ...prev,
       [key]: value,
     }));
+  };
+
+  /**
+   * Test manual briefing trigger
+   */
+  const testManualBriefing = async () => {
+    setIsTestingScheduler(true);
+    setError(null);
+    
+    try {
+      const result = await window.electronAPI.triggerManualBriefing();
+      if (result.success) {
+        setSuccessMessage('Manual briefing triggered! Check the console for progress.');
+        setTimeout(() => setSuccessMessage(null), 5000);
+      } else {
+        setError(result.error || 'Failed to trigger manual briefing');
+      }
+    } catch (err) {
+      console.error('Error triggering manual briefing:', err);
+      setError('An unexpected error occurred while triggering manual briefing');
+    } finally {
+      setIsTestingScheduler(false);
+    }
   };
 
   if (isLoading) {
@@ -302,6 +326,20 @@ export function SettingsScreen() {
                   </p>
                 </div>
               </label>
+              
+              {/* Test Button */}
+              <div className="pt-4 border-t border-gray-200">
+                <button
+                  onClick={testManualBriefing}
+                  disabled={isTestingScheduler}
+                  className="px-4 py-2 bg-green-600 text-white rounded-md text-sm hover:bg-green-700 transition-colors disabled:opacity-50"
+                >
+                  {isTestingScheduler ? 'Testing...' : 'Test Briefing & Notification'}
+                </button>
+                <p className="text-xs text-gray-500 mt-2">
+                  Manually trigger a briefing to test the notification system
+                </p>
+              </div>
             </div>
           </div>
 

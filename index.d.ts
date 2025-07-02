@@ -51,6 +51,9 @@ declare global {
       updateSettings: (settings: any) => Promise<any>;
       getSetting: (key: string) => Promise<any>;
       setSetting: (key: string, value: any) => Promise<any>;
+
+      // Scheduler testing
+      triggerManualBriefing: () => Promise<any>;
     };
   }
 }
