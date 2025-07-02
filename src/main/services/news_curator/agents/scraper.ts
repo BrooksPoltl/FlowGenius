@@ -33,11 +33,41 @@ export class ScraperAgent {
 
   private robotsCache: Map<string, RobotsRule[]> = new Map();
 
+  private failedDomains: Map<string, number> = new Map(); // Track failed attempts per domain
+
+  private lastResetTime?: number; // Track when we last reset failed domains
+
   private readonly userAgent = 'FlowGenius/1.0';
 
   private readonly defaultDelay = 1000; // 1 second between requests
 
   private readonly timeout = 10000; // 10 second timeout
+
+  private readonly overallTimeout = 30000; // 30 second overall timeout per article
+
+  private readonly maxFailuresPerDomain = 3; // Skip domain after 3 failures
+
+  /**
+   * Reset failed domains counter periodically (every hour)
+   */
+  private resetFailedDomainsIfNeeded(): void {
+    const oneHour = 60 * 60 * 1000;
+    const now = Date.now();
+    
+    if (!this.lastResetTime) {
+      this.lastResetTime = now;
+      return;
+    }
+    
+    if (now - this.lastResetTime > oneHour) {
+      const failedCount = this.failedDomains.size;
+      this.failedDomains.clear();
+      this.lastResetTime = now;
+      if (failedCount > 0) {
+        console.log(`🕷️ ScraperAgent: Reset ${failedCount} failed domains after 1 hour`);
+      }
+    }
+  }
 
   /**
    * Scrape full content from multiple article URLs
@@ -46,18 +76,39 @@ export class ScraperAgent {
     console.log(
       `🕷️ ScraperAgent: Starting to scrape ${articles.length} articles`
     );
+    
+    // Reset failed domains periodically
+    this.resetFailedDomainsIfNeeded();
     const results: ScrapedContent[] = [];
+    const maxScrapingTime = 5 * 60 * 1000; // 5 minutes total for all articles
+    const startTime = Date.now();
 
     for (let i = 0; i < articles.length; i++) {
+      // Check if we've exceeded the maximum scraping time
+      if (Date.now() - startTime > maxScrapingTime) {
+        console.log(`🕷️ ScraperAgent: Maximum scraping time exceeded, stopping after ${i} articles`);
+        // Add failed entries for remaining articles
+        for (let j = i; j < articles.length; j++) {
+          results.push({
+            url: articles[j].url,
+            title: articles[j].title,
+            content: '',
+            success: false,
+            error: 'Scraping timeout - maximum batch time exceeded',
+          });
+        }
+        break;
+      }
+
       const article = articles[i];
       console.log(
         `🕷️ ScraperAgent: [${i + 1}/${articles.length}] Processing: ${article.url}`
       );
 
       try {
-        const startTime = Date.now();
+        const articleStartTime = Date.now();
         const content = await this.scrapeArticle(article);
-        const duration = Date.now() - startTime;
+        const duration = Date.now() - articleStartTime;
         console.log(
           `🕷️ ScraperAgent: [${i + 1}/${articles.length}] Completed in ${duration}ms - Success: ${content.success}`
         );
@@ -77,8 +128,9 @@ export class ScraperAgent {
       }
     }
 
+    const totalTime = Date.now() - startTime;
     console.log(
-      `🕷️ ScraperAgent: Completed scraping ${results.length} articles`
+      `🕷️ ScraperAgent: Completed scraping ${results.length} articles in ${Math.round(totalTime / 1000)}s`
     );
     const successful = results.filter(r => r.success).length;
     console.log(
@@ -89,43 +141,86 @@ export class ScraperAgent {
   }
 
   /**
-   * Scrape content from a single article URL
+   * Scrape content from a single article URL with overall timeout protection
    */
   private async scrapeArticle(article: Article): Promise<ScrapedContent> {
-    const domain = new URL(article.url).hostname;
-    console.log(
-      `🕷️ ScraperAgent: Processing ${domain} - ${article.url.substring(0, 80)}...`
-    );
-
-    // Check robots.txt compliance
-    console.log(`🕷️ ScraperAgent: Checking robots.txt for ${domain}...`);
-    const robotsStartTime = Date.now();
-    const canScrape = await this.checkRobotsPermission(article.url);
-    const robotsCheckTime = Date.now() - robotsStartTime;
-    console.log(
-      `🕷️ ScraperAgent: Robots.txt check completed in ${robotsCheckTime}ms - Can scrape: ${canScrape}`
-    );
-
-    if (!canScrape) {
+    // Wrap entire operation in timeout to prevent hanging
+    return Promise.race([
+      this.scrapeArticleInternal(article),
+      new Promise<ScrapedContent>((_, reject) =>
+        setTimeout(() => reject(new Error('Overall scraping timeout')), this.overallTimeout)
+      )
+    ]).catch(error => {
+      console.error(`🕷️ ScraperAgent: Timeout or error for ${article.url}:`, error);
       return {
         url: article.url,
         title: article.title,
         content: '',
         success: false,
-        error: 'Blocked by robots.txt',
+        error: error instanceof Error ? error.message : 'Scraping failed',
+      };
+    });
+  }
+
+  /**
+   * Internal scraping logic without timeout wrapper
+   */
+  private async scrapeArticleInternal(article: Article): Promise<ScrapedContent> {
+    const domain = new URL(article.url).hostname;
+    console.log(
+      `🕷️ ScraperAgent: Processing ${domain} - ${article.url.substring(0, 80)}...`
+    );
+
+    // Check if domain has failed too many times
+    const failureCount = this.failedDomains.get(domain) || 0;
+    if (failureCount >= this.maxFailuresPerDomain) {
+      console.log(`🕷️ ScraperAgent: Skipping ${domain} - too many failures (${failureCount})`);
+      return {
+        url: article.url,
+        title: article.title,
+        content: '',
+        success: false,
+        error: `Domain skipped due to repeated failures (${failureCount} attempts)`,
       };
     }
 
-    // Implement rate limiting per domain
-    console.log(`🕷️ ScraperAgent: Applying rate limiting for ${domain}...`);
-    const rateLimitStartTime = Date.now();
-    await this.respectRateLimit(domain);
-    const rateLimitTime = Date.now() - rateLimitStartTime;
-    console.log(
-      `🕷️ ScraperAgent: Rate limiting completed in ${rateLimitTime}ms`
-    );
-
     try {
+      // Check robots.txt compliance with timeout protection
+      console.log(`🕷️ ScraperAgent: Checking robots.txt for ${domain}...`);
+      const robotsStartTime = Date.now();
+      const canScrape = await Promise.race([
+        this.checkRobotsPermission(article.url),
+        new Promise<boolean>((resolve) => 
+          setTimeout(() => {
+            console.log(`🕷️ ScraperAgent: Robots.txt check timeout for ${domain}, allowing scrape`);
+            resolve(true);
+          }, 8000) // 8 second timeout for robots check
+        )
+      ]);
+      const robotsCheckTime = Date.now() - robotsStartTime;
+      console.log(
+        `🕷️ ScraperAgent: Robots.txt check completed in ${robotsCheckTime}ms - Can scrape: ${canScrape}`
+      );
+
+      if (!canScrape) {
+        return {
+          url: article.url,
+          title: article.title,
+          content: '',
+          success: false,
+          error: 'Blocked by robots.txt',
+        };
+      }
+
+      // Implement rate limiting per domain
+      console.log(`🕷️ ScraperAgent: Applying rate limiting for ${domain}...`);
+      const rateLimitStartTime = Date.now();
+      await this.respectRateLimit(domain);
+      const rateLimitTime = Date.now() - rateLimitStartTime;
+      console.log(
+        `🕷️ ScraperAgent: Rate limiting completed in ${rateLimitTime}ms`
+      );
+
       console.log(`🕷️ ScraperAgent: Making HTTP request to ${domain}...`);
       const fetchStartTime = Date.now();
 
@@ -178,6 +273,12 @@ export class ScraperAgent {
       };
     } catch (error) {
       console.error(`🕷️ ScraperAgent: Error scraping ${domain}:`, error);
+      
+      // Track failure for this domain
+      const currentFailures = this.failedDomains.get(domain) || 0;
+      this.failedDomains.set(domain, currentFailures + 1);
+      console.log(`🕷️ ScraperAgent: Domain ${domain} failure count: ${currentFailures + 1}`);
+      
       return {
         url: article.url,
         title: article.title,
@@ -203,10 +304,10 @@ export class ScraperAgent {
         return this.isAllowedByRobots(url, rules);
       }
 
-      // Fetch robots.txt
+      // Fetch robots.txt with shorter timeout
       const response = await fetch(robotsUrl, {
         headers: { 'User-Agent': this.userAgent },
-        signal: AbortSignal.timeout(5000),
+        signal: AbortSignal.timeout(3000), // Reduced to 3 seconds
       });
 
       if (!response.ok) {
@@ -222,7 +323,7 @@ export class ScraperAgent {
       return this.isAllowedByRobots(url, rules);
     } catch (error) {
       // If we can't fetch robots.txt, err on the side of caution but allow scraping
-      console.warn(`Failed to check robots.txt for ${url}:`, error);
+      console.warn(`🕷️ ScraperAgent: Failed to check robots.txt for ${url}:`, error);
       return true;
     }
   }
