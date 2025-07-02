@@ -101,7 +101,7 @@ export class NotificationAgent {
         (win: BrowserWindow) => !win.isDestroyed()
       );
 
-      if (mainWindow) {
+      if (mainWindow && !mainWindow.isDestroyed()) {
         if (mainWindow.isMinimized()) {
           mainWindow.restore();
         }

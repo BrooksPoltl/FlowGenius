@@ -74,17 +74,24 @@ export async function makeAppSetup(createWindow: () => Promise<BrowserWindow>) {
 
   // Handle window close event - minimize to tray instead of quitting
   window.on('close', (event) => {
-    if (!(app as any).isQuitting) {
+    if (!(app as any).isQuitting && !window.isDestroyed()) {
       event.preventDefault();
       window.hide();
       
-      // Show notification on first minimize (only on Windows/Linux where displayBalloon exists)
-      if (tray && !window.isMinimized() && process.platform === 'win32') {
+      // Show notification on first minimize (only on Windows where displayBalloon exists)
+      if (tray && !window.isDestroyed() && !window.isMinimized() && process.platform === 'win32') {
         tray.displayBalloon({
           title: 'FlowGenius',
           content: 'FlowGenius is running in the background. Click the tray icon to open.',
         });
       }
+    }
+  });
+
+  // Clean up mainWindow reference when window is destroyed
+  window.on('closed', () => {
+    if (window === mainWindow) {
+      mainWindow = null;
     }
   });
 
@@ -96,8 +103,10 @@ export async function makeAppSetup(createWindow: () => Promise<BrowserWindow>) {
       mainWindow = window;
     } else {
       for (window of windows.reverse()) {
-        window.show();
-        window.restore();
+        if (!window.isDestroyed()) {
+          window.show();
+          window.restore();
+        }
       }
     }
   });
