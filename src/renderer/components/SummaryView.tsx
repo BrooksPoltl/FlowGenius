@@ -39,6 +39,7 @@ interface Citation {
   url: string;
   title: string;
   source: string;
+  thumbnail_url?: string;
 }
 
 interface SummaryViewProps {
@@ -314,6 +315,21 @@ export function SummaryView({ briefingId, summaryReady }: SummaryViewProps) {
                   rel="noopener noreferrer"
                   className="flex items-start space-x-3 p-3 bg-white rounded border border-gray-200 hover:bg-gray-50 transition-colors"
                 >
+                  {/* Thumbnail */}
+                  {citation.thumbnail_url && (
+                    <div className="w-16 h-12 bg-gray-200 rounded overflow-hidden flex-shrink-0">
+                      <img
+                        src={citation.thumbnail_url}
+                        alt={citation.title}
+                        className="w-full h-full object-cover"
+                        onError={e => {
+                          // Hide image if it fails to load
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    </div>
+                  )}
+                  
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900 truncate">
                       {citation.title}

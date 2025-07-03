@@ -5,16 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { ThumbsUp, ThumbsDown, ExternalLink } from 'lucide-react';
-
-export interface Article {
-  title: string;
-  url: string;
-  description: string;
-  source: string;
-  published_at?: string;
-  thumbnail?: string;
-  personalizationScore?: number;
-}
+import type { Article } from '../../../shared/types';
 
 interface ArticleCardProps {
   article: Article;
@@ -155,10 +146,10 @@ export function ArticleCard({
   return (
     <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 overflow-hidden">
       {/* Thumbnail */}
-      {article.thumbnail && (
+      {article.thumbnail_url && (
         <div className="h-48 bg-gray-200 overflow-hidden">
           <img
-            src={article.thumbnail}
+            src={article.thumbnail_url}
             alt={article.title}
             className="w-full h-full object-cover"
             onError={e => {
@@ -174,7 +165,7 @@ export function ArticleCard({
         {/* Header with source and date */}
         <div className="flex justify-between items-center mb-2 text-sm text-gray-500">
           <span className="font-medium">{article.source}</span>
-          <span>{formatDate(article.published_at)}</span>
+          <span>{formatDate(article.publishedAt)}</span>
         </div>
 
         {/* Title */}
@@ -188,11 +179,11 @@ export function ArticleCard({
         </p>
 
         {/* Personalization Score (for debugging) */}
-        {article.personalizationScore !== undefined &&
-          article.personalizationScore > 0 && (
+        {article.score !== undefined &&
+          article.score > 0 && (
             <div className="mb-4">
               <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
-                Score: {article.personalizationScore.toFixed(2)}
+                Score: {article.score.toFixed(2)}
               </span>
             </div>
           )}
