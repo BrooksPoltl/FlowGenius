@@ -12,6 +12,7 @@ import { SettingsScreen } from '../screens/settings';
 import { HistorySidebar } from './HistorySidebar';
 import { SummaryView } from './SummaryView';
 import { InterestsModal } from './InterestsModal';
+import { WorkflowProgress } from './WorkflowProgress';
 import type { Article } from '../../shared/types';
 import { Category } from '../../shared/types';
 
@@ -21,6 +22,7 @@ export function MainApp() {
   const [currentScreen, setCurrentScreen] = useState<AppScreen>('news');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isInterestsModalOpen, setIsInterestsModalOpen] = useState(false);
+  const [showWorkflowProgress, setShowWorkflowProgress] = useState(false);
   const [currentBriefingId, setCurrentBriefingId] = useState<number | null>(
     null
   );
@@ -59,6 +61,7 @@ export function MainApp() {
           `📢 [MAIN APP] New briefing created: ${briefingId}, setting as current.`
         );
         setCurrentBriefingId(briefingId);
+        setShowWorkflowProgress(false); // Close progress modal when briefing is ready
       }
     );
 
@@ -92,6 +95,7 @@ export function MainApp() {
    */
   const handleCurateNews = useCallback(async () => {
     setIsLoading(true);
+    setShowWorkflowProgress(true);
     setError(null);
     try {
       await window.electronAPI.curateNews(selectedCategoryId);
@@ -99,6 +103,7 @@ export function MainApp() {
     } catch (err) {
       console.error('🔄 [RENDERER] Error curating news:', err);
       setError('Failed to curate news. Please try again.');
+      setShowWorkflowProgress(false);
     } finally {
       setIsLoading(false);
     }
@@ -109,12 +114,14 @@ export function MainApp() {
    */
   const handleForceRefresh = async () => {
     setIsLoading(true);
+    setShowWorkflowProgress(true);
     setError(null);
     try {
       await window.electronAPI.forceRefresh();
     } catch (err) {
       console.error('🔄 [RENDERER] Error with force refresh:', err);
       setError('Failed to force refresh. Please try again.');
+      setShowWorkflowProgress(false);
     } finally {
       setIsLoading(false);
     }
@@ -307,6 +314,12 @@ export function MainApp() {
       <InterestsModal
         isOpen={isInterestsModalOpen}
         onClose={() => setIsInterestsModalOpen(false)}
+      />
+      
+      {/* Workflow Progress Modal */}
+      <WorkflowProgress
+        isVisible={showWorkflowProgress}
+        onClose={() => setShowWorkflowProgress(false)}
       />
     </div>
   );

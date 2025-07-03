@@ -65,6 +65,17 @@ export interface UserSettings {
   notifications_enabled: boolean;
 }
 
+// Workflow Progress types
+export interface WorkflowProgress {
+  currentStep: string;
+  totalSteps: number;
+  stepIndex: number;
+  stepName: string;
+  status: 'starting' | 'in_progress' | 'completed' | 'error';
+  message?: string;
+  timestamp: string;
+}
+
 // Workflow State types
 export interface WorkflowState {
   // Settings phase

@@ -121,6 +121,23 @@ const API = {
 
   // App-level controls
   resetApp: () => ipcRenderer.invoke('app:reset'),
+
+  // Progress tracking
+  onWorkflowProgress: (callback: (progress: {
+    currentStep: string;
+    totalSteps: number;
+    stepIndex: number;
+    stepName: string;
+    status: 'starting' | 'in_progress' | 'completed' | 'error';
+    message?: string;
+    timestamp: string;
+  }) => void) => {
+    ipcRenderer.on('workflow-progress', (_, progress) => callback(progress));
+    return () => ipcRenderer.removeAllListeners('workflow-progress');
+  },
+
+  // Test progress functionality
+  triggerTestProgress: () => ipcRenderer.invoke('trigger-test-progress'),
 };
 
 console.log('🔧 API object created:', Object.keys(API));

@@ -1,4 +1,4 @@
-import { app, ipcMain, session, nativeImage } from 'electron';
+import { app, ipcMain, session, nativeImage, BrowserWindow } from 'electron';
 import { config } from 'dotenv';
 import { join } from 'node:path';
 import { existsSync } from 'node:fs';
@@ -96,6 +96,7 @@ makeAppWithSingleInstanceLock(async () => {
   setupInterestsIPC();
   setupCategoriesIPC();
   setupNewsIPC();
+  setupProgressIPC();
   setupSettingsIPC();
   setupAppControlsIPC();
 
@@ -1064,6 +1065,47 @@ function setupSettingsIPC(): void {
     } catch (error) {
       console.error('Error triggering manual briefing:', error);
       return { success: false, error: 'Failed to trigger manual briefing' };
+    }
+  });
+}
+
+/**
+ * Sets up IPC handlers for workflow progress tracking
+ */
+function setupProgressIPC(): void {
+  // Progress updates are sent via webContents.send() from the workflow
+  // No specific handlers needed, but we can add a test progress function
+  
+  ipcMain.handle('trigger-test-progress', async () => {
+    try {
+      // Send a series of test progress updates
+      const testSteps = ['step1', 'step2', 'step3'];
+      for (let i = 0; i < testSteps.length; i++) {
+        const progress = {
+          currentStep: testSteps[i],
+          totalSteps: testSteps.length,
+          stepIndex: i + 1,
+          stepName: `Test Step ${i + 1}`,
+          status: 'in_progress' as const,
+          message: `Processing test step ${i + 1}`,
+          timestamp: new Date().toISOString(),
+        };
+        
+        const mainWindow = BrowserWindow.getAllWindows().find(
+          (win: BrowserWindow) => !win.isDestroyed()
+        );
+        if (mainWindow) {
+          mainWindow.webContents.send('workflow-progress', progress);
+        }
+        
+        // Wait a bit between updates
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Error testing progress:', error);
+      return { success: false, error: 'Failed to test progress' };
     }
   });
 }
