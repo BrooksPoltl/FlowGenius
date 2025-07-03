@@ -49,7 +49,7 @@ export async function topicExtractorAgent(
     });
 
     const prompt = PromptTemplate.fromTemplate(`
-You are a topic extraction expert. Given an article title and description, extract 2 relevant topics that best describe the content.
+You are a topic extraction expert. Given an article title and description, extract 2 broad topic categories that best describe the content.
 
 Article:
 Title: {title}
@@ -57,15 +57,21 @@ Description: {description}
 
 Return topics as a JSON array with format:
 [
-  {{"name": "Topic Name", "relevance": 0.9}},
-  {{"name": "Another Topic", "relevance": 0.7}}
+  {{"name": "Topic Category", "relevance": 0.9}},
+  {{"name": "Another Category", "relevance": 0.7}}
 ]
 
 Topics should be:
-- Specific and descriptive
-- Relevant to the article content
-- Useful for personalization
-- Scored 0-1 for relevance to the article
+- BROAD CATEGORIES, not specific events (e.g., "AI" not "OpenAI GPT-4 launch")
+- GENERAL THEMES that apply across multiple articles (e.g., "Technology", "Politics", "Business")
+- REUSABLE for personalization (e.g., "Cryptocurrency", "Climate Change", "Sports")
+- INDUSTRY/DOMAIN focused (e.g., "Healthcare", "Finance", "Entertainment")
+
+Examples of GOOD topics: "AI", "Technology", "Politics", "Business", "Climate", "Sports", "Healthcare", "Finance", "Cryptocurrency", "Space", "Gaming", "Security", "Education", "Transportation"
+
+Examples of BAD topics: "Microsoft acquires OpenAI", "Biden's new policy", "Apple iPhone 15 release", "Tesla stock price"
+
+Scored 0-1 for how relevant the broad category is to the article content.
 
 Only return the JSON array, no other text.
 `);
