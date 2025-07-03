@@ -140,12 +140,15 @@ export function MainApp() {
           <div className="flex justify-between items-center h-16">
             {/* Logo and Sidebar Toggle */}
             <div className="flex items-center space-x-3">
-              <button
-                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
-              </button>
+              {/* Only show hamburger menu on news tab */}
+              {currentScreen === 'news' && (
+                <button
+                  onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                  className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
+                </button>
+              )}
               <TrendingUp className="h-8 w-8 text-blue-600" />
               <h1 className="text-xl font-bold text-gray-900">FlowGenius</h1>
             </div>
