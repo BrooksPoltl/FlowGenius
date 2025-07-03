@@ -1,5 +1,5 @@
 /**
- * Database Schema Definitions for FlowGenius
+ * Database Schema Definitions for PulseNews
  * Contains all table creation statements and schema definitions
  */
 

@@ -134,8 +134,8 @@ export class NotificationAgent {
   static async sendTestNotification(): Promise<void> {
     try {
       const notification = new Notification({
-        title: 'FlowGenius Test',
-        body: 'This is a test notification from FlowGenius',
+        title: 'PulseNews Test',
+        body: 'This is a test notification from PulseNews',
         silent: false,
       });
 

@@ -37,7 +37,7 @@ export class ScraperAgent {
 
   private lastResetTime?: number; // Track when we last reset failed domains
 
-  private readonly userAgent = 'FlowGenius/1.0';
+  private readonly userAgent = 'PulseNews/1.0';
 
   private readonly defaultDelay = 50; // 50ms between requests (20 TPS)
 
@@ -384,7 +384,7 @@ export class ScraperAgent {
     const applicableRules = rules.filter(
       rule =>
         rule.userAgent === '*' ||
-        rule.userAgent.toLowerCase().includes('flowgenius') ||
+        rule.userAgent.toLowerCase().includes('pulsenews') ||
         rule.userAgent === this.userAgent
     );
 

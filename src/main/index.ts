@@ -38,7 +38,7 @@ import { Article, UserSettings } from '../shared/types';
 config();
 
 makeAppWithSingleInstanceLock(async () => {
-  console.log('🚀 FlowGenius main process starting...');
+  console.log('🚀 PulseNews main process starting...');
 
   await app.whenReady();
   console.log('✅ Electron app ready');
@@ -66,7 +66,7 @@ makeAppWithSingleInstanceLock(async () => {
   console.log('🖼️ Creating main window...');
   await makeAppSetup(MainWindow);
 
-  console.log('🎉 FlowGenius is ready! Backend logs will appear here.');
+  console.log('🎉 PulseNews is ready! Backend logs will appear here.');
 });
 
 /**

@@ -24,7 +24,7 @@ function createSystemTray() {
 
   const contextMenu = Menu.buildFromTemplate([
     {
-      label: 'Show FlowGenius',
+      label: 'Show PulseNews',
       click: () => {
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.show();
@@ -41,7 +41,7 @@ function createSystemTray() {
     },
   ]);
 
-  tray.setToolTip('FlowGenius - AI News Curator');
+  tray.setToolTip('PulseNews - AI News Curator');
   tray.setContextMenu(contextMenu);
 
   // Show window when tray icon is clicked
@@ -86,9 +86,9 @@ export async function makeAppSetup(createWindow: () => Promise<BrowserWindow>) {
         process.platform === 'win32'
       ) {
         tray.displayBalloon({
-          title: 'FlowGenius',
+          title: 'PulseNews',
           content:
-            'FlowGenius is running in the background. Click the tray icon to open.',
+            'PulseNews is running in the background. Click the tray icon to open.',
         });
       }
     }
