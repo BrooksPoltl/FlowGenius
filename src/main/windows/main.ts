@@ -9,8 +9,8 @@ import { displayName } from '~/package.json';
 export async function MainWindow() {
   // Set up icon path with debugging
   const iconPath = ENVIRONMENT.IS_DEV 
-    ? join(process.cwd(), 'src/resources/public/image.jpg')
-    : join(__dirname, '../resources/public/image.jpg');
+    ? join(process.cwd(), 'src/resources/public/app-icon.png')
+    : join(__dirname, '../resources/public/app-icon.png');
   
   console.log('🖼️ App icon path:', iconPath);
   console.log('🖼️ Icon file exists:', existsSync(iconPath));
@@ -69,6 +69,18 @@ export async function MainWindow() {
     }
 
     window.show();
+    
+    // Try setting dock icon again after window is shown (sometimes more reliable)
+    if (process.platform === 'darwin' && app.dock && appIcon) {
+      try {
+        const iconImage = typeof appIcon === 'string' ? nativeImage.createFromPath(appIcon) : appIcon;
+        const dockIcon = iconImage.resize({ width: 128, height: 128 });
+        app.dock.setIcon(dockIcon);
+        console.log('🖼️ Dock icon set again after window load');
+      } catch (error) {
+        console.error('🖼️ Error setting dock icon after load:', error);
+      }
+    }
   });
 
   window.on('close', () => {

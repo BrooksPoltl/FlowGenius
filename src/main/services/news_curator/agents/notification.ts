@@ -3,9 +3,12 @@
  * Uses Electron's native Notification API to inform users when new briefings are ready
  */
 
-import { Notification, BrowserWindow } from 'electron';
+import { Notification, BrowserWindow, nativeImage } from 'electron';
+import { join } from 'node:path';
+import { existsSync } from 'node:fs';
 import { DatabaseWriterAgent } from './database_writer';
 import { getUserSettings } from '../../user-settings';
+import { ENVIRONMENT } from '../../../../shared/constants';
 
 /**
  * State interface for the notification agent
@@ -24,6 +27,30 @@ export interface NotificationState {
  * Notification agent that shows desktop notifications when briefings are complete
  */
 export class NotificationAgent {
+  /**
+   * Get the notification icon path
+   * Uses the same icon as the main app window
+   */
+  private static getNotificationIcon(): string | undefined {
+    try {
+      const iconPath = ENVIRONMENT.IS_DEV 
+        ? join(process.cwd(), 'src/resources/public/image.jpg')
+        : join(__dirname, '../../../resources/public/image.jpg');
+      
+      console.log('📱 NotificationAgent: Icon path:', iconPath);
+      console.log('📱 NotificationAgent: Icon exists:', existsSync(iconPath));
+      
+      if (existsSync(iconPath)) {
+        return iconPath;
+      }
+      
+      console.warn('📱 NotificationAgent: Icon file not found, using default');
+      return undefined;
+    } catch (error) {
+      console.error('📱 NotificationAgent: Error getting icon path:', error);
+      return undefined;
+    }
+  }
   /**
    * Main agent function to send notification
    * Called by the LangGraph workflow after successful briefing creation
@@ -70,7 +97,7 @@ export class NotificationAgent {
       const notification = new Notification({
         title: notificationTitle,
         body: notificationBody,
-        icon: undefined, // Could add app icon path here
+        icon: NotificationAgent.getNotificationIcon(),
         silent: false,
         urgency: 'normal',
       });
@@ -136,6 +163,7 @@ export class NotificationAgent {
       const notification = new Notification({
         title: 'PulseNews Test',
         body: 'This is a test notification from PulseNews',
+        icon: NotificationAgent.getNotificationIcon(),
         silent: false,
       });
 

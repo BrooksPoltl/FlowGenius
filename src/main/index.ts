@@ -1,10 +1,13 @@
-import { app, ipcMain, session } from 'electron';
+import { app, ipcMain, session, nativeImage } from 'electron';
 import { config } from 'dotenv';
+import { join } from 'node:path';
+import { existsSync } from 'node:fs';
 
 import { makeAppWithSingleInstanceLock } from 'lib/electron-app/factories/app/instance';
 import { makeAppSetup } from 'lib/electron-app/factories/app/setup';
 import { MainWindow } from './windows/main';
 import { notifyRendererBriefingCreated } from './services/notification-utils';
+import { ENVIRONMENT } from '../shared/constants';
 import {
   initializeSettings,
   getUserInterests,
@@ -42,6 +45,39 @@ makeAppWithSingleInstanceLock(async () => {
 
   await app.whenReady();
   console.log('✅ Electron app ready');
+
+  // Set app icon at the application level
+  try {
+    const iconPath = ENVIRONMENT.IS_DEV 
+      ? join(process.cwd(), 'src/resources/public/app-icon.png')
+      : join(__dirname, '../resources/public/app-icon.png');
+    
+    console.log('🖼️ Setting app icon:', iconPath);
+    console.log('🖼️ App icon exists:', existsSync(iconPath));
+    
+    if (existsSync(iconPath)) {
+      const appIcon = nativeImage.createFromPath(iconPath);
+      console.log('🖼️ Icon loaded, size:', appIcon.getSize());
+      
+      // Resize icon for dock (macOS expects smaller sizes)
+      const dockIcon = appIcon.resize({ width: 128, height: 128 });
+      
+      // Set dock icon on macOS
+      if (process.platform === 'darwin' && app.dock) {
+        app.dock.setIcon(dockIcon);
+        console.log('🖼️ macOS dock icon set successfully with size:', dockIcon.getSize());
+      }
+      
+      // For Windows/Linux, the icon is set via window configuration
+      if (process.platform !== 'darwin') {
+        console.log('🖼️ Icon will be set via window configuration for Windows/Linux');
+      }
+    } else {
+      console.warn('🖼️ App icon file not found, using default');
+    }
+  } catch (error) {
+    console.error('🖼️ Error setting app icon:', error);
+  }
 
   // Initialize database and settings
   console.log('📊 Initializing database and settings...');
