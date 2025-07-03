@@ -86,6 +86,20 @@ export function SummaryView({ briefingId, summaryReady }: SummaryViewProps) {
     }
   }, [briefingId]);
 
+  /**
+   * Handles link clicks and tracks interaction analytics
+   */
+  const handleLinkClick = async (url: string, event: React.MouseEvent) => {
+    try {
+      // Track click interaction for analytics
+      await window.electronAPI.handleInteraction(url, 'click');
+      console.log(`📊 [RENDERER] Tracked click interaction for: ${url}`);
+    } catch (error) {
+      console.error('📊 [RENDERER] Error tracking link click:', error);
+      // Don't prevent the link from opening if tracking fails
+    }
+  };
+
   // Load summary when briefingId changes or when summaryReady becomes true
   useEffect(() => {
     if (briefingId) {
@@ -255,6 +269,7 @@ export function SummaryView({ briefingId, summaryReady }: SummaryViewProps) {
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-blue-600 hover:text-blue-800 underline"
+                          onClick={(event) => handleLinkClick(citation, event)}
                         >
                           {new URL(citation).hostname}
                           {citIndex < story.citations.length - 1 && ', '}
@@ -291,6 +306,7 @@ export function SummaryView({ briefingId, summaryReady }: SummaryViewProps) {
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-xs text-blue-600 hover:text-blue-800 underline"
+                    onClick={(event) => handleLinkClick(bite.citation, event)}
                   >
                     {new URL(bite.citation).hostname}
                   </a>
@@ -314,6 +330,7 @@ export function SummaryView({ briefingId, summaryReady }: SummaryViewProps) {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-start space-x-3 p-3 bg-white rounded border border-gray-200 hover:bg-gray-50 transition-colors"
+                  onClick={(event) => handleLinkClick(citation.url, event)}
                 >
                   {/* Thumbnail */}
                   {citation.thumbnail_url && (
