@@ -39,6 +39,7 @@
     "better-sqlite3": "^11.8.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "croner": "^9.1.0",
     "dotenv": "^16.4.7",
     "electron-router-dom": "^2.1.0",
     "lucide-react": "^0.477.0",

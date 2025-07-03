@@ -5,7 +5,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { ArticleCard, Article as CardArticle } from './ui/ArticleCard';
-import { Category } from '../../shared/types';
 
 interface Article {
   id: string;
@@ -22,28 +21,20 @@ interface ArticlesViewProps {
   onBriefingChange: (briefingId: number | null) => void;
   selectedArticles?: CardArticle[] | null;
   selectedBriefingId?: number | null;
-  selectedCategoryId?: number | null;
-  isLoading: boolean;
+  loading: boolean;
   error: string | null;
-  cooldownStatus: {
-    scheduled: string[];
-    cooledDown: string[];
-  } | null;
 }
 
 export function ArticlesView({
   onBriefingChange,
   selectedArticles,
   selectedBriefingId,
-  selectedCategoryId,
-  isLoading,
+  loading,
   error,
-  cooldownStatus,
 }: ArticlesViewProps) {
   console.log('🔍 [RENDERER] ArticlesView component rendering...');
 
   const [articles, setArticles] = useState<Article[]>([]);
-  const [loading, setLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [newBriefingNotification, setNewBriefingNotification] = useState<{
     show: boolean;
@@ -54,7 +45,7 @@ export function ArticlesView({
    * Load latest articles from the current briefing
    */
   const loadArticles = useCallback(async () => {
-    setLoading(true);
+    // The parent component now controls loading state
     try {
       console.log('🔍 [RENDERER] Starting loadArticles...');
       console.log(
@@ -171,22 +162,17 @@ export function ArticlesView({
         setLastUpdated(null);
         onBriefingChange(null);
       }
-    } catch (error) {
-      console.error('❌ [RENDERER] Error loading articles:', error);
+    } catch (err) {
+      console.error('❌ [RENDERER] Error loading articles:', err);
       console.error(
         '❌ [RENDERER] Error stack:',
-        error instanceof Error ? error.stack : 'No stack'
+        err instanceof Error ? err.stack : 'No stack'
       );
-    } finally {
-      console.log(
-        '🔍 [RENDERER] loadArticles finished, setting loading to false'
-      );
-      setLoading(false);
+      // Parent handles error display
     }
   }, [onBriefingChange]);
 
   // Handle selected articles from sidebar or load latest articles
-
   useEffect(() => {
     if (selectedArticles && selectedBriefingId) {
       // Use selected articles from sidebar
@@ -211,12 +197,7 @@ export function ArticlesView({
       console.log('🔍 [RENDERER] Loading latest articles');
       loadArticles();
     }
-  }, [
-    selectedArticles,
-    selectedBriefingId,
-    onBriefingChange,
-    loadArticles,
-  ]);
+  }, [selectedArticles, selectedBriefingId, onBriefingChange, loadArticles]);
 
   // Listen for new briefings being created
   useEffect(() => {
@@ -257,8 +238,8 @@ export function ArticlesView({
         .then(result => {
           console.log('🔍 [RENDERER] Direct IPC test result:', result);
         })
-        .catch(error => {
-          console.error('🔍 [RENDERER] Direct IPC test error:', error);
+        .catch(err => {
+          console.error('🔍 [RENDERER] Direct IPC test error:', err);
         });
     } else {
       console.error('🔍 [RENDERER] electronAPI not available!');
@@ -415,32 +396,8 @@ export function ArticlesView({
                 Last updated: {new Date(lastUpdated).toLocaleString()}
               </p>
             )}
-
-            {/* Cooldown Status Indicator */}
-            {cooldownStatus && (
-              <div className="mt-2 flex items-center space-x-4 text-sm">
-                {cooldownStatus.scheduled.length > 0 && (
-                  <div className="flex items-center space-x-1">
-                    <div className="w-2 h-2 bg-green-500 rounded-full" />
-                    <span className="text-green-700">
-                      {cooldownStatus.scheduled.length} interests ready
-                    </span>
-                  </div>
-                )}
-                {cooldownStatus.cooledDown.length > 0 && (
-                  <div className="flex items-center space-x-1">
-                    <div className="w-2 h-2 bg-orange-500 rounded-full" />
-                    <span className="text-orange-700">
-                      {cooldownStatus.cooledDown.length} on cooldown
-                    </span>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
-          <div className="flex items-center space-x-3">
-
-          </div>
+          <div className="flex items-center space-x-3" />
         </div>
       </div>
 

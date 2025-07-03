@@ -325,9 +325,7 @@ function setupNewsIPC(): void {
       return {
         success: false,
         error:
-          error instanceof Error
-            ? error.message
-            : 'Failed to force refresh',
+          error instanceof Error ? error.message : 'Failed to force refresh',
       };
     }
   });

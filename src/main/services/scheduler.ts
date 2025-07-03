@@ -3,11 +3,12 @@
  * Manages automatic execution of news curation workflow based on user-defined schedules
  */
 
-import * as cron from 'node-cron';
+import { Cron } from 'croner';
 import { getUserSettings } from './user-settings';
 // Dynamic import to avoid circular dependency
 import { getEnabledCategorySchedules } from './categories';
-import type { CategoryWithSchedule, WorkflowState } from '../../shared/types';
+import type { CategoryWithSchedule } from '../../shared/types';
+import { executeNewsCurationWorkflow } from './news_curator/graph';
 
 /**
  * Interface for active scheduled jobs
@@ -15,7 +16,7 @@ import type { CategoryWithSchedule, WorkflowState } from '../../shared/types';
 interface ScheduledJob {
   id: string;
   cronExpression: string;
-  task: cron.ScheduledTask;
+  task: Cron;
   description: string;
 }
 
@@ -94,14 +95,14 @@ export class SchedulerService {
       const [hours, minutes] = time.split(':').map(Number);
       const cronExpression = `${minutes} ${hours} * * *`; // Daily at specified time
 
-      const task = cron.schedule(
+      const task = new Cron(
         cronExpression,
+        {
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        },
         async () => {
           console.log('🌅 Executing scheduled morning briefing...');
           await SchedulerService.executeBriefingWorkflow('morning');
-        },
-        {
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         }
       );
 
@@ -130,14 +131,14 @@ export class SchedulerService {
       const [hours, minutes] = time.split(':').map(Number);
       const cronExpression = `${minutes} ${hours} * * *`; // Daily at specified time
 
-      const task = cron.schedule(
+      const task = new Cron(
         cronExpression,
+        {
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        },
         async () => {
           console.log('🌆 Executing scheduled evening briefing...');
           await SchedulerService.executeBriefingWorkflow('evening');
-        },
-        {
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         }
       );
 
@@ -165,8 +166,11 @@ export class SchedulerService {
     categorySchedule: CategoryWithSchedule
   ): void {
     try {
-      const task = cron.schedule(
+      const task = new Cron(
         categorySchedule.cron_expression,
+        {
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        },
         async () => {
           console.log(
             `📂 Executing scheduled briefing for category "${categorySchedule.categoryName}"...`
@@ -175,9 +179,6 @@ export class SchedulerService {
             'category',
             categorySchedule.category_id
           );
-        },
-        {
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         }
       );
 
@@ -212,9 +213,6 @@ export class SchedulerService {
       console.log(`⏰ Starting ${type} briefing workflow...`);
       const startTime = Date.now();
 
-      const { executeNewsCurationWorkflow } = await import(
-        './news_curator/graph'
-      );
       const result = await executeNewsCurationWorkflow(categoryId);
 
       const duration = Date.now() - startTime;
@@ -225,7 +223,7 @@ export class SchedulerService {
 
       // If articles were found, create a briefing and start summary generation
       if (result.curatedArticles.length > 0) {
-        await SchedulerService.createBriefingAndStartSummary(result, type);
+        await SchedulerService.createBriefingAndStartSummary();
       } else {
         console.log(`⏰ No new articles found for ${type} briefing`);
       }
@@ -237,10 +235,7 @@ export class SchedulerService {
   /**
    * Create briefing and start background summary generation
    */
-  private static async createBriefingAndStartSummary(
-    result: Partial<WorkflowState>,
-    type: string
-  ): Promise<void> {
+  private static async createBriefingAndStartSummary(): Promise<void> {
     // This function is deprecated and should no longer be used.
     // All briefing creation is now handled by the unified workflow
     // and the databaseWriterAgent.

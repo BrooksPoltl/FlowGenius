@@ -43,10 +43,6 @@ export function MainApp() {
     null
   );
   const [error, setError] = useState<string | null>(null);
-  const [cooldownStatus, setCooldownStatus] = useState<{
-    scheduled: string[];
-    cooledDown: string[];
-  } | null>(null);
 
   /**
    * Load categories from backend
@@ -106,20 +102,6 @@ export function MainApp() {
   }, [selectedBriefingId]);
 
   /**
-   * Check cooldown status for user interests
-   */
-  const checkCooldownStatus = useCallback(async () => {
-    try {
-      const result = await window.electronAPI.getCooldownStatus();
-      if (result.success && result.data) {
-        setCooldownStatus(result.data);
-      }
-    } catch (error) {
-      console.error('Error checking cooldown status:', error);
-    }
-  }, []);
-
-  /**
    * Trigger news curation workflow
    */
   const handleCurateNews = async () => {
@@ -127,11 +109,10 @@ export function MainApp() {
     setError(null);
     try {
       console.log(
-        `🔄 [RENDERER] Starting news curation for category ${selectedCategoryId || 'General'}...`
+        `🔄 [RENDERER] Starting news curation for category ${
+          selectedCategoryId || 'General'
+        }...`
       );
-
-      // Check cooldown status before starting
-      await checkCooldownStatus();
 
       const result = await window.electronAPI.curateNews(selectedCategoryId);
       console.log('🔄 [RENDERER] Curation result:', result);
@@ -151,8 +132,8 @@ export function MainApp() {
       } else {
         setError(result.error || 'Failed to curate news');
       }
-    } catch (error) {
-      console.error('🔄 [RENDERER] Error curating news:', error);
+    } catch (err) {
+      console.error('🔄 [RENDERER] Error curating news:', err);
       setError('Failed to curate news');
     } finally {
       setIsLoading(false);
@@ -171,9 +152,6 @@ export function MainApp() {
       console.log('🔄 [RENDERER] Force refresh result:', result);
 
       if (result.success) {
-        // Reset cooldown status since we bypassed it
-        setCooldownStatus({ scheduled: [], cooledDown: [] });
-
         if (
           result.data &&
           (!result.data.curatedArticles ||
@@ -186,8 +164,8 @@ export function MainApp() {
       } else {
         setError(result.error || 'Failed to force refresh');
       }
-    } catch (error) {
-      console.error('🔄 [RENDERER] Error with force refresh:', error);
+    } catch (err) {
+      console.error('🔄 [RENDERER] Error with force refresh:', err);
       setError('Failed to force refresh');
     } finally {
       setIsLoading(false);
@@ -281,7 +259,7 @@ export function MainApp() {
             onBriefingSelect={handleBriefingSelect}
             isLoading={isLoading}
             setIsLoading={setIsLoading}
-            setError={() => {}} // Placeholder for error handling
+            setError={setError}
           />
         )}
 
@@ -398,10 +376,8 @@ export function MainApp() {
                     onBriefingChange={setCurrentBriefingId}
                     selectedArticles={selectedArticles}
                     selectedBriefingId={selectedBriefingId}
-                    selectedCategoryId={selectedCategoryId}
-                    isLoading={isLoading}
+                    loading={isLoading}
                     error={error}
-                    cooldownStatus={cooldownStatus}
                   />
                 ) : (
                   <SummaryView
