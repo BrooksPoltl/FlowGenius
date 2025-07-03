@@ -138,10 +138,10 @@ export function RecommendedTopics({ onTopicAdded }: RecommendedTopicsProps) {
     <div className="space-y-3">
       <h3 className="text-sm font-medium text-gray-700">Suggestions for You</h3>
       <div className="text-xs text-gray-500 mb-2">
-        Based on your liked articles
+        Top 3 topics based on your engagement
       </div>
       <div className="space-y-2">
-        {recommendations.map(rec => (
+        {recommendations.slice(0, 3).map(rec => (
           <div
             key={rec.topicId}
             className="flex items-center justify-between p-3 bg-blue-50 rounded-md border border-blue-100"

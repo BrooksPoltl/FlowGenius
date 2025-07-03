@@ -14,33 +14,43 @@ export interface TopicRecommendation {
 
 /**
  * Gets topic recommendations for the user based on their interaction history
- * @returns Array of top 5 recommended topics not already in user's interests
+ * @returns Array of top 3 recommended topics not already in user's interests
  */
 export function getTopicRecommendations(): TopicRecommendation[] {
   try {
-    console.log('Generating topic recommendations...');
+    console.log('Generating top 3 topic recommendations...');
 
-    // Query for topics with high affinity that aren't already interests
+    // First, let's check what data we have for debugging
+    const totalTopics = db.prepare('SELECT COUNT(*) as count FROM Topics').get() as { count: number };
+    const totalAffinities = db.prepare('SELECT COUNT(*) as count FROM TopicAffinities').get() as { count: number };
+    const totalInterests = db.prepare('SELECT COUNT(*) as count FROM Interests').get() as { count: number };
+    
+    console.log(`Debug: ${totalTopics.count} topics, ${totalAffinities.count} affinities, ${totalInterests.count} interests`);
+
+    // Just get any topics that aren't already interests
     const stmt = db.prepare(`
       SELECT 
         t.id as topicId,
         t.name as topicName,
-        ta.affinity_score as affinityScore,
-        ta.interaction_count as interactionCount
-      FROM TopicAffinities ta
-      JOIN Topics t ON ta.topic_id = t.id
-      WHERE ta.affinity_score > 0.5 
-        AND ta.interaction_count >= 3
-        AND t.name NOT IN (
-          SELECT name FROM Interests
-        )
-      ORDER BY ta.affinity_score DESC
-      LIMIT 5
+        COALESCE(ta.affinity_score, 0.1) as affinityScore,
+        COALESCE(ta.interaction_count, 0) as interactionCount
+      FROM Topics t
+      LEFT JOIN TopicAffinities ta ON t.id = ta.topic_id
+      WHERE t.name NOT IN (
+        SELECT name FROM Interests
+      )
+      ORDER BY COALESCE(ta.affinity_score, 0.1) DESC, t.name ASC
+      LIMIT 3
     `);
 
     const recommendations = stmt.all() as TopicRecommendation[];
 
     console.log(`Found ${recommendations.length} topic recommendations`);
+    
+    // Log the recommendations for debugging
+    recommendations.forEach((rec, index) => {
+      console.log(`  ${index + 1}. ${rec.topicName} (affinity: ${rec.affinityScore.toFixed(3)}, interactions: ${rec.interactionCount})`);
+    });
 
     return recommendations;
   } catch (error) {

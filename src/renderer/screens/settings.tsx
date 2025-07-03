@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
 import { CategoryManagement } from '../components/ui/CategoryManagement';
+import { RecommendedTopics } from '../components/RecommendedTopics';
 
 interface UserSettings {
   schedule_morning_enabled: boolean;
@@ -319,6 +320,12 @@ export function SettingsScreen() {
                   Add
                 </button>
               </div>
+              
+              {/* Suggested Topics */}
+              <div className="mb-6">
+                <RecommendedTopics onTopicAdded={loadAllSettings} />
+              </div>
+              
               <div className="space-y-2">
                 {interests.map(interest => (
                   <div
