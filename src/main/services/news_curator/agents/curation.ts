@@ -83,7 +83,7 @@ export async function curationAgent(
           article.description,
           article.source,
           article.publishedAt,
-          article.imageUrl
+          article.thumbnail_url
         );
 
         if (result.changes > 0) {
@@ -221,7 +221,7 @@ export function getRecentArticles(limit: number = 20): Article[] {
       description: row.description as string,
       source: row.source as string,
       publishedAt: row.published_at as string,
-      imageUrl: row.thumbnail_url as string,
+      thumbnail_url: row.thumbnail_url as string,
       score: 0,
     }));
   } catch (error) {

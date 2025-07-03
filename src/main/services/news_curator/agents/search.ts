@@ -3,7 +3,10 @@
  * Uses Brave Search API to find relevant articles for user interests
  */
 
-import type { WorkflowState, Article } from '../../../../shared/types';
+import type {
+  WorkflowState,
+  Article as SharedArticle,
+} from '../../../../shared/types';
 import db from '../../../db';
 
 /**
@@ -35,7 +38,7 @@ export async function searchAgent(
       `🔍 Searching for ${scheduledInterests.length} scheduled interests...`
     );
 
-    const allResults: Article[] = [];
+    const allResults: SharedArticle[] = [];
 
     // Record search attempt time for all scheduled interests
     const currentTime = new Date().toISOString();
@@ -145,7 +148,7 @@ function formatPublishedDate(age?: string): string | undefined {
 async function searchNewsForTopic(
   topic: string,
   apiKey: string
-): Promise<Article[]> {
+): Promise<SharedArticle[]> {
   const searchUrl = 'https://api.search.brave.com/res/v1/news/search';
   const params = new URLSearchParams({
     q: topic,
@@ -178,19 +181,24 @@ async function searchNewsForTopic(
   }
 
   return data.results.map(
-    (result: Record<string, unknown>): Article => ({
-      id: (result.url as string) || '',
-      title: (result.title as string) || 'No title',
-      url: (result.url as string) || '',
-      description: (result.description as string) || '',
-      source:
-        ((result.meta_url as Record<string, unknown>)?.hostname as string) ||
-        (result.url as string) ||
-        'Unknown source',
-      publishedAt:
-        formatPublishedDate(result.age as string) || new Date().toISOString(),
-      imageUrl: (result.thumbnail as Record<string, unknown>)?.src as string,
-      score: 0, // Will be set during ranking
-    })
+    (result: Record<string, unknown>): SharedArticle => {
+      const thumbnailUrl = (result.thumbnail as Record<string, unknown>)
+        ?.src as string;
+
+      return {
+        id: (result.url as string) || '',
+        title: (result.title as string) || 'No title',
+        url: (result.url as string) || '',
+        description: (result.description as string) || '',
+        source:
+          ((result.meta_url as Record<string, unknown>)?.hostname as string) ||
+          (result.url as string) ||
+          'Unknown source',
+        publishedAt:
+          formatPublishedDate(result.age as string) || new Date().toISOString(),
+        thumbnail_url: thumbnailUrl,
+        score: 0, // Will be set during ranking
+      };
+    }
   );
 }

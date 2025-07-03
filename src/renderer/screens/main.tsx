@@ -5,8 +5,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { Settings, RefreshCw, TrendingUp } from 'lucide-react';
-import { ArticleCard, Article } from '../components/ui/ArticleCard';
+import { ArticleCard } from '../components/ui/ArticleCard';
 import { InterestsModal } from '../components/InterestsModal';
+import type { Article } from '../../shared/types';
 
 interface NewsStats {
   interests: number;
@@ -77,13 +78,14 @@ export function MainScreen({
         // Map the database articles to our Article interface
         const mappedArticles: Article[] = result.data.articles.map(
           (article: any) => ({
+            id: article.id || article.url,
             title: article.title,
             url: article.url,
             description: article.description || '',
             source: article.source || 'Unknown',
-            published_at: article.published_at,
-            thumbnail: article.thumbnail_url,
-            personalizationScore: article.personalization_score,
+            publishedAt: article.published_at,
+            thumbnail_url: article.thumbnail_url,
+            score: article.personalization_score,
           })
         );
 

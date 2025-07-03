@@ -50,6 +50,7 @@ interface Citation {
   url: string;
   title: string;
   source: string;
+  thumbnail_url?: string;
 }
 
 /**
@@ -421,9 +422,9 @@ Return as JSON with fields: title, subtitle
 
     // Use thumbnail URLs from Brave Search API - these are already high quality
     originalArticles.forEach(article => {
-      if (article.imageUrl) {
+      if (article.thumbnail_url) {
         images.push({
-          url: article.imageUrl,
+          url: article.thumbnail_url,
           caption: article.title,
           sourceUrl: article.url,
         });
@@ -442,6 +443,7 @@ Return as JSON with fields: title, subtitle
       url: article.url,
       title: article.title,
       source: this.extractSourceName(article.url),
+      thumbnail_url: article.thumbnail_url,
     }));
   }
 
