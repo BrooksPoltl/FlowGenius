@@ -47,7 +47,7 @@ declare global {
 
       // News curation
       getDailyNews: () => Promise<IPCResponse<Article[]>>;
-      getLatestBriefing: () => Promise<IPCResponse<Briefing>>;
+    
       curateNews: (categoryId?: number | null) => Promise<IPCResponse<void>>;
       recordArticleInteraction: (
         articleUrl: string,

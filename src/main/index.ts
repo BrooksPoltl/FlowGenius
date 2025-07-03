@@ -237,49 +237,7 @@ function setupCategoriesIPC(): void {
  */
 function setupNewsIPC(): void {
   console.log('🔗 Starting setupNewsIPC function...');
-  // Get latest briefing
-  ipcMain.handle('get-latest-briefing', async () => {
-    try {
-      console.log('📰 [IPC] Getting latest briefing...');
-      console.log('📰 [IPC] Database object:', typeof db, !!db);
 
-      const latestBriefing = db
-        .prepare(
-          `
-        SELECT id, title, created_at,
-               (SELECT COUNT(*) FROM Briefing_Articles WHERE briefing_id = Briefings.id) as article_count
-        FROM Briefings 
-        ORDER BY created_at DESC 
-        LIMIT 1
-      `
-        )
-        .get();
-
-      console.log(
-        '📰 [IPC] Latest briefing raw result:',
-        JSON.stringify(latestBriefing, null, 2)
-      );
-
-      if (!latestBriefing) {
-        console.log('📰 [IPC] No briefings found in database');
-        return { success: false, error: 'No briefings found' };
-      }
-
-      const result = { success: true, data: latestBriefing };
-      console.log(
-        '📰 [IPC] Returning briefing result:',
-        JSON.stringify(result, null, 2)
-      );
-      return result;
-    } catch (error) {
-      console.error('❌ [IPC] Error getting latest briefing:', error);
-      return {
-        success: false,
-        error:
-          error instanceof Error ? error.message : 'Failed to get latest briefing',
-      };
-    }
-  });
 
   // Curate news
   ipcMain.handle('curate-news', async (_, categoryId: number | null) => {

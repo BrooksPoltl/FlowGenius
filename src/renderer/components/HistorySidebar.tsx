@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Calendar, FileText, ChevronRight } from 'lucide-react';
-import { Article } from './ui/ArticleCard';
+import type { Article } from '../../shared/types';
 
 interface Briefing {
   id: number;
@@ -73,13 +73,14 @@ export function HistorySidebar({
       if (result.success && result.data) {
         // Map the database articles to our Article interface
         const mappedArticles: Article[] = result.data.map((article: any) => ({
+          id: article.id,
           title: article.title,
           url: article.url,
           description: article.description || '',
           source: article.source || 'Unknown',
-          published_at: article.published_at,
-          thumbnail: article.thumbnail_url,
-          personalizationScore: article.personalization_score,
+          publishedAt: article.published_at,
+          thumbnail_url: article.thumbnail_url,
+          score: article.personalization_score,
         }));
 
         onBriefingSelect(mappedArticles, briefingId);
@@ -148,20 +149,7 @@ export function HistorySidebar({
         <p className="text-sm text-gray-500 mt-1">Past news briefings</p>
       </div>
 
-      {/* View Latest Button */}
-      <div className="p-2 border-b border-gray-200">
-        <button
-          onClick={() => onBriefingSelect(null, null)}
-          className={`w-full text-left p-3 rounded-lg transition-colors hover:bg-gray-50 ${
-            selectedBriefingId === null ? 'bg-blue-50' : ''
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium text-gray-900">View Latest</p>
-            <ChevronRight className="h-4 w-4 text-gray-400" />
-          </div>
-        </button>
-      </div>
+
 
       {/* Briefings List */}
       <div className="flex-1 overflow-y-auto">

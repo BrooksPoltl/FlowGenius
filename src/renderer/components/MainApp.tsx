@@ -12,7 +12,7 @@ import { SettingsScreen } from '../screens/settings';
 import { HistorySidebar } from './HistorySidebar';
 import { SummaryView } from './SummaryView';
 import { InterestsModal } from './InterestsModal';
-import { Article } from './ui/ArticleCard';
+import type { Article } from '../../shared/types';
 import { Category } from '../../shared/types';
 
 type AppScreen = 'news' | 'dashboard' | 'settings';
@@ -34,25 +34,7 @@ export function MainApp() {
   );
   const [error, setError] = useState<string | null>(null);
 
-  const loadLatestBriefing = useCallback(async () => {
-    console.log('🔄 [MAIN APP] Loading latest briefing...');
-    setIsLoading(true);
-    try {
-      const briefingResponse = await window.electronAPI.getLatestBriefing();
-      if (
-        briefingResponse &&
-        briefingResponse.success &&
-        briefingResponse.data
-      ) {
-        setCurrentBriefingId(briefingResponse.data.id);
-      }
-    } catch (err) {
-      console.error('❌ [MAIN APP] Error loading latest briefing:', err);
-      setError('Failed to load the latest briefing.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+
 
   /**
    * Load categories from backend
@@ -70,7 +52,6 @@ export function MainApp() {
 
   useEffect(() => {
     loadCategories();
-    loadLatestBriefing();
 
     const unsubscribeBriefing = window.electronAPI.onBriefingCreated(
       briefingId => {
@@ -97,7 +78,7 @@ export function MainApp() {
         unsubscribeSummary();
       }
     };
-  }, [loadLatestBriefing, currentBriefingId]);
+  }, [currentBriefingId]);
 
   /**
    * Trigger news curation workflow

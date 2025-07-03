@@ -53,7 +53,7 @@ const API = {
 
   // News curation
   getDailyNews: () => ipcRenderer.invoke('get-daily-news'),
-  getLatestBriefing: () => ipcRenderer.invoke('get-latest-briefing'),
+
   curateNews: (categoryId?: number | null) =>
     ipcRenderer.invoke('curate-news', categoryId),
   recordArticleInteraction: (articleUrl: string, interactionType: string) =>
@@ -118,6 +118,9 @@ const API = {
 
   // Scheduler testing
   triggerManualBriefing: () => ipcRenderer.invoke('scheduler:trigger-manual'),
+
+  // App-level controls
+  resetApp: () => ipcRenderer.invoke('app:reset'),
 };
 
 console.log('🔧 API object created:', Object.keys(API));
