@@ -107,6 +107,25 @@ export function SummaryView({ briefingId, summaryReady }: SummaryViewProps) {
     }
   }, [briefingId, summaryReady, loadSummary]);
 
+  // Auto-retry logic: if summaryReady is true but we don't have summary yet, retry after a delay
+  useEffect(() => {
+    let retryTimeout: NodeJS.Timeout;
+    
+    if (summaryReady && briefingId && !summary && !loading && error) {
+      console.log(`📋 [RENDERER] Summary should be ready but not loaded, retrying in 2 seconds...`);
+      retryTimeout = setTimeout(() => {
+        console.log(`📋 [RENDERER] Auto-retrying summary load for briefing ${briefingId}`);
+        loadSummary();
+      }, 2000);
+    }
+
+    return () => {
+      if (retryTimeout) {
+        clearTimeout(retryTimeout);
+      }
+    };
+  }, [summaryReady, briefingId, summary, loading, error, loadSummary]);
+
   if (!briefingId) {
     return (
       <div className="flex items-center justify-center h-full bg-gray-50">

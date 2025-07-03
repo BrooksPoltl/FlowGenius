@@ -120,12 +120,7 @@ export function WorkflowProgress({ isVisible, onClose }: WorkflowProgressProps) 
               </div>
             </div>
 
-            {/* Estimated time remaining (optional) */}
-            {!isComplete && (
-              <div className="text-center text-xs text-gray-500">
-                Estimated time remaining: {Math.max(1, progress.totalSteps - progress.stepIndex)} minutes
-              </div>
-            )}
+
           </div>
         )}
 
@@ -144,7 +139,7 @@ export function WorkflowProgress({ isVisible, onClose }: WorkflowProgressProps) 
               onClick={onClose}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
             >
-              {isComplete ? 'View Briefing' : 'Close'}
+              {isComplete ? 'Continue' : 'Close'}
             </button>
           </div>
         )}

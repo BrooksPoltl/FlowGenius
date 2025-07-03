@@ -126,9 +126,15 @@ export function HistorySidebar({
     // Listen for new briefings being created
     const unsubscribe = window.electronAPI.onBriefingCreated(briefingId => {
       console.log(
-        `📢 [RENDERER] New briefing created: ${briefingId}, refreshing list`
+        `📢 [RENDERER] New briefing created: ${briefingId}, refreshing list and auto-selecting`
       );
       loadBriefings();
+      
+      // Auto-select the new briefing after a brief delay to ensure list is updated
+      setTimeout(() => {
+        console.log(`📢 [RENDERER] Auto-selecting new briefing ${briefingId}`);
+        loadBriefingArticles(briefingId);
+      }, 500);
     });
 
     return () => {

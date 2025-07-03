@@ -62,6 +62,12 @@ export function MainApp() {
         );
         setCurrentBriefingId(briefingId);
         setShowWorkflowProgress(false); // Close progress modal when briefing is ready
+        
+        // Add a small delay to ensure database transaction is fully committed
+        setTimeout(() => {
+          console.log(`📢 [MAIN APP] Marking summary as ready for briefing ${briefingId}`);
+          setSummaryReady(true); // Summary is created as part of unified workflow
+        }, 1000); // 1 second delay to ensure DB commit
       }
     );
 
@@ -96,6 +102,7 @@ export function MainApp() {
   const handleCurateNews = useCallback(async () => {
     setIsLoading(true);
     setShowWorkflowProgress(true);
+    setSummaryReady(false); // Reset summary state for new curation
     setError(null);
     try {
       await window.electronAPI.curateNews(selectedCategoryId);
@@ -115,6 +122,7 @@ export function MainApp() {
   const handleForceRefresh = async () => {
     setIsLoading(true);
     setShowWorkflowProgress(true);
+    setSummaryReady(false); // Reset summary state for new curation
     setError(null);
     try {
       await window.electronAPI.forceRefresh();
@@ -130,13 +138,29 @@ export function MainApp() {
   /**
    * Handles when a briefing is selected from the history sidebar
    */
-  const handleBriefingSelect = (
+  const handleBriefingSelect = async (
     // Articles are no longer needed here, sidebar only provides the ID
     briefingArticles: Article[] | null,
     briefingId: number | null
   ) => {
     setCurrentBriefingId(briefingId);
     setSummaryReady(false); // Reset summary status on new selection
+    
+    // Check if this briefing already has a summary available
+    if (briefingId) {
+      try {
+        console.log(`📋 [MAIN APP] Checking if briefing ${briefingId} has summary...`);
+        const summary = await window.electronAPI.getSummary(briefingId);
+        if (summary) {
+          console.log(`📋 [MAIN APP] Summary exists for briefing ${briefingId}, marking as ready`);
+          setSummaryReady(true);
+        } else {
+          console.log(`📋 [MAIN APP] No summary found for briefing ${briefingId}`);
+        }
+      } catch (error) {
+        console.log(`📋 [MAIN APP] Error checking summary for briefing ${briefingId}:`, error);
+      }
+    }
   };
 
   return (
