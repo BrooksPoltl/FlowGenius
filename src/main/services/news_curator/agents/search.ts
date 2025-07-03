@@ -1,43 +1,28 @@
 /**
- * SearchAgent - Queries Brave Search API for news articles based on user interests
- * This agent receives interests from SettingsAgent and fetches relevant news
+ * SearchAgent - Searches for news articles based on scheduled interests
+ * Uses Brave Search API to find relevant articles for user interests
  */
 
-import { SchedulerState } from './scheduler';
+import type { WorkflowState, Article } from '../../../../shared/types';
 import db from '../../../db';
 
-export interface Article {
-  title: string;
-  url: string;
-  description: string;
-  source: string;
-  published_at?: string;
-  thumbnail?: string;
-  sourceInterest?: string; // Track which interest this article came from
-}
-
-export interface SearchState extends SchedulerState {
-  articles: Article[];
-  searchErrors?: string[];
-}
-
 /**
- * SearchAgent function that queries Brave Search API for news articles
- * @param state - State containing user interests
- * @returns Updated state with fetched articles
+ * Searches for articles based on scheduled interests
+ * @param state - Current workflow state containing scheduled interests
+ * @returns Updated state with search results
  */
-export async function searchAgent(state: any): Promise<any> {
+export async function searchAgent(
+  state: Partial<WorkflowState>
+): Promise<Partial<WorkflowState>> {
   try {
-    const { scheduledInterests, cooledDownInterests, error } = state;
+    const scheduledInterests = state.scheduledInterests || [];
 
-    // Use scheduled interests instead of all user interests
-    const interestsToSearch = scheduledInterests || [];
-
-    // If there was an error in previous agent, pass it through
-    if (error) {
+    if (scheduledInterests.length === 0) {
+      console.log('🔍 No interests scheduled for search');
       return {
-        articles: [],
-        searchErrors: [error],
+        ...state,
+        searchResults: [],
+        searchComplete: true,
       };
     }
 
@@ -46,31 +31,11 @@ export async function searchAgent(state: any): Promise<any> {
       throw new Error('BRAVE_SEARCH_API_KEY environment variable not found');
     }
 
-    const articles: Article[] = [];
-    const searchErrors: string[] = [];
-
-    if (interestsToSearch.length === 0) {
-      console.log('📅 No interests scheduled for search (all on cool-down)');
-      if (cooledDownInterests && cooledDownInterests.length > 0) {
-        console.log(
-          `❄️  ${cooledDownInterests.length} interests on cool-down: ${cooledDownInterests.join(', ')}`
-        );
-      }
-      return {
-        searchResults: [],
-        searchComplete: true,
-        searchErrors: undefined,
-      };
-    }
-
     console.log(
-      `🔍 Searching for ${interestsToSearch.length} scheduled interests...`
+      `🔍 Searching for ${scheduledInterests.length} scheduled interests...`
     );
-    if (cooledDownInterests && cooledDownInterests.length > 0) {
-      console.log(
-        `❄️  ${cooledDownInterests.length} interests on cool-down: ${cooledDownInterests.join(', ')}`
-      );
-    }
+
+    const allResults: Article[] = [];
 
     // Record search attempt time for all scheduled interests
     const currentTime = new Date().toISOString();
@@ -80,16 +45,16 @@ export async function searchAgent(state: any): Promise<any> {
       WHERE name = ?
     `);
 
-    for (const interest of interestsToSearch) {
+    for (const interest of scheduledInterests) {
       updateSearchAttempt.run(currentTime, interest);
     }
     console.log(
-      `📝 Recorded search attempt time for ${interestsToSearch.length} interests`
+      `📝 Recorded search attempt time for ${scheduledInterests.length} interests`
     );
 
     // Search for articles for each scheduled interest with rate limiting (1 TPS)
-    for (let i = 0; i < interestsToSearch.length; i++) {
-      const interest = interestsToSearch[i];
+    for (let i = 0; i < scheduledInterests.length; i++) {
+      const interest = scheduledInterests[i];
 
       try {
         // Add delay between requests to respect 1 TPS limit (except for first request)
@@ -106,34 +71,36 @@ export async function searchAgent(state: any): Promise<any> {
         // Tag each article with its source interest
         const taggedResults = searchResults.map(article => ({
           ...article,
-          sourceInterest: interest,
+          id: article.url, // Ensure ID is set
         }));
 
-        articles.push(...taggedResults);
+        allResults.push(...taggedResults);
         console.log(`Found ${searchResults.length} articles for "${interest}"`);
       } catch (error) {
-        const errorMessage = `Failed to search for "${interest}": ${error instanceof Error ? error.message : 'Unknown error'}`;
-        console.error(errorMessage);
-        searchErrors.push(errorMessage);
+        console.error(`❌ Error searching for "${interest}":`, error);
+        // Continue with other interests even if one fails
       }
     }
 
+    console.log(
+      `🔍 Search complete: ${allResults.length} total articles found`
+    );
+
     return {
-      searchResults: articles,
+      ...state,
+      searchResults: allResults,
       searchComplete: true,
-      searchErrors: searchErrors.length > 0 ? searchErrors : undefined,
     };
   } catch (error) {
     const errorMessage =
-      error instanceof Error
-        ? error.message
-        : 'Unknown error occurred in SearchAgent';
+      error instanceof Error ? error.message : 'Unknown error occurred';
     console.error('SearchAgent error:', errorMessage);
 
     return {
+      ...state,
       searchResults: [],
       searchComplete: false,
-      searchErrors: [errorMessage],
+      error: errorMessage,
     };
   }
 }
@@ -211,13 +178,19 @@ async function searchNewsForTopic(
   }
 
   return data.results.map(
-    (result: Record<string, any>): Article => ({
-      title: result.title || 'No title',
-      url: result.url || '',
-      description: result.description || '',
-      source: result.meta_url?.hostname || result.url || 'Unknown source',
-      published_at: formatPublishedDate(result.age),
-      thumbnail: result.thumbnail?.src,
+    (result: Record<string, unknown>): Article => ({
+      id: (result.url as string) || '',
+      title: (result.title as string) || 'No title',
+      url: (result.url as string) || '',
+      description: (result.description as string) || '',
+      source:
+        ((result.meta_url as Record<string, unknown>)?.hostname as string) ||
+        (result.url as string) ||
+        'Unknown source',
+      publishedAt:
+        formatPublishedDate(result.age as string) || new Date().toISOString(),
+      imageUrl: (result.thumbnail as Record<string, unknown>)?.src as string,
+      score: 0, // Will be set during ranking
     })
   );
 }

@@ -26,7 +26,7 @@ export function up(db: Database): void {
       { key: 'schedule_morning_time', value: '08:00' },
       { key: 'schedule_evening_enabled', value: 'true' },
       { key: 'schedule_evening_time', value: '18:00' },
-      { key: 'notifications_enabled', value: 'true' }
+      { key: 'notifications_enabled', value: 'true' },
     ];
 
     const insertStmt = db.prepare(`
@@ -55,4 +55,4 @@ export function down(db: Database): void {
     console.error('❌ Migration 005 rollback failed:', error);
     throw error;
   }
-} 
+}

@@ -6,6 +6,8 @@
 import * as cron from 'node-cron';
 import { getUserSettings } from './user-settings';
 import { executeNewsCurationWorkflow } from './news_curator/graph';
+import { getEnabledCategorySchedules } from './categories';
+import type { CategoryWithSchedule, WorkflowState } from '../../shared/types';
 
 /**
  * Interface for active scheduled jobs
@@ -22,9 +24,13 @@ interface ScheduledJob {
  */
 export class SchedulerService {
   private static instance: SchedulerService;
+
   private activeJobs: Map<string, ScheduledJob> = new Map();
 
-  private constructor() {}
+  private constructor() {
+    // Initialize scheduler service
+    console.log('⏰ Scheduler service instantiated');
+  }
 
   /**
    * Get singleton instance
@@ -46,26 +52,34 @@ export class SchedulerService {
   }
 
   /**
-   * Update schedules based on current user settings
-   * Call this whenever user settings change
+   * Update schedules based on current user settings and category schedules
+   * Call this whenever user settings or category schedules change
    */
   updateSchedules(): void {
-    console.log('⏰ Updating schedules based on user settings...');
-    
+    console.log(
+      '⏰ Updating schedules based on user settings and category schedules...'
+    );
+
     // Clear existing jobs
     this.clearAllJobs();
 
-    // Get current settings
+    // Get current global settings
     const settings = getUserSettings();
 
-    // Schedule morning briefing if enabled
+    // Schedule global morning briefing if enabled
     if (settings.schedule_morning_enabled) {
       this.scheduleMorningBriefing(settings.schedule_morning_time);
     }
 
-    // Schedule evening briefing if enabled
+    // Schedule global evening briefing if enabled
     if (settings.schedule_evening_enabled) {
       this.scheduleEveningBriefing(settings.schedule_evening_time);
+    }
+
+    // Schedule category-specific briefings
+    const categorySchedules = getEnabledCategorySchedules();
+    for (const categorySchedule of categorySchedules) {
+      this.scheduleCategoryBriefing(categorySchedule);
     }
 
     console.log(`⏰ Active schedules: ${this.activeJobs.size} jobs`);
@@ -79,24 +93,30 @@ export class SchedulerService {
     try {
       const [hours, minutes] = time.split(':').map(Number);
       const cronExpression = `${minutes} ${hours} * * *`; // Daily at specified time
-      
-      const task = cron.schedule(cronExpression, async () => {
-        console.log('🌅 Executing scheduled morning briefing...');
-        await this.executeBriefingWorkflow('morning');
-      }, {
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
-      });
+
+      const task = cron.schedule(
+        cronExpression,
+        async () => {
+          console.log('🌅 Executing scheduled morning briefing...');
+          await SchedulerService.executeBriefingWorkflow('morning');
+        },
+        {
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        }
+      );
 
       const job: ScheduledJob = {
         id: 'morning',
         cronExpression,
         task,
-        description: `Morning briefing at ${time}`
+        description: `Morning briefing at ${time}`,
       };
 
       this.activeJobs.set('morning', job);
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      console.log(`⏰ Scheduled morning briefing at ${time} (${cronExpression}) in timezone ${timezone}`);
+      console.log(
+        `⏰ Scheduled morning briefing at ${time} (${cronExpression}) in timezone ${timezone}`
+      );
     } catch (error) {
       console.error('⏰ Error scheduling morning briefing:', error);
     }
@@ -109,46 +129,100 @@ export class SchedulerService {
     try {
       const [hours, minutes] = time.split(':').map(Number);
       const cronExpression = `${minutes} ${hours} * * *`; // Daily at specified time
-      
-      const task = cron.schedule(cronExpression, async () => {
-        console.log('🌆 Executing scheduled evening briefing...');
-        await this.executeBriefingWorkflow('evening');
-      }, {
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
-      });
+
+      const task = cron.schedule(
+        cronExpression,
+        async () => {
+          console.log('🌆 Executing scheduled evening briefing...');
+          await SchedulerService.executeBriefingWorkflow('evening');
+        },
+        {
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        }
+      );
 
       const job: ScheduledJob = {
         id: 'evening',
         cronExpression,
         task,
-        description: `Evening briefing at ${time}`
+        description: `Evening briefing at ${time}`,
       };
 
       this.activeJobs.set('evening', job);
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      console.log(`⏰ Scheduled evening briefing at ${time} (${cronExpression}) in timezone ${timezone}`);
+      console.log(
+        `⏰ Scheduled evening briefing at ${time} (${cronExpression}) in timezone ${timezone}`
+      );
     } catch (error) {
       console.error('⏰ Error scheduling evening briefing:', error);
     }
   }
 
   /**
+   * Schedule category-specific briefing
+   */
+  private scheduleCategoryBriefing(
+    categorySchedule: CategoryWithSchedule
+  ): void {
+    try {
+      const task = cron.schedule(
+        categorySchedule.cron_expression,
+        async () => {
+          console.log(
+            `📂 Executing scheduled briefing for category "${categorySchedule.categoryName}"...`
+          );
+          await SchedulerService.executeBriefingWorkflow(
+            'category',
+            categorySchedule.category_id
+          );
+        },
+        {
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        }
+      );
+
+      const job: ScheduledJob = {
+        id: `category-${categorySchedule.category_id}`,
+        cronExpression: categorySchedule.cron_expression,
+        task,
+        description: `${categorySchedule.categoryName} briefing (${categorySchedule.cron_expression})`,
+      };
+
+      this.activeJobs.set(job.id, job);
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      console.log(
+        `⏰ Scheduled category briefing for "${categorySchedule.categoryName}" (${categorySchedule.cron_expression}) in timezone ${timezone}`
+      );
+    } catch (error) {
+      console.error(
+        `⏰ Error scheduling category briefing for "${categorySchedule.categoryName}":`,
+        error
+      );
+    }
+  }
+
+  /**
    * Execute the briefing workflow
    */
-  private async executeBriefingWorkflow(type: 'morning' | 'evening'): Promise<void> {
+  private static async executeBriefingWorkflow(
+    type: 'morning' | 'evening' | 'category',
+    categoryId?: number
+  ): Promise<void> {
     try {
       console.log(`⏰ Starting ${type} briefing workflow...`);
       const startTime = Date.now();
 
-      const result = await executeNewsCurationWorkflow();
-      
+      const result = await executeNewsCurationWorkflow(categoryId);
+
       const duration = Date.now() - startTime;
       console.log(`⏰ ${type} briefing completed in ${duration}ms`);
-      console.log(`⏰ Results: ${result.curatedArticles.length} articles curated, ${result.newArticlesSaved} new articles saved`);
+      console.log(
+        `⏰ Results: ${result.curatedArticles.length} articles curated, ${result.newArticlesSaved} new articles saved`
+      );
 
       // If articles were found, create a briefing and start summary generation
       if (result.curatedArticles.length > 0) {
-        await this.createBriefingAndStartSummary(result, type);
+        await SchedulerService.createBriefingAndStartSummary(result, type);
       } else {
         console.log(`⏰ No new articles found for ${type} briefing`);
       }
@@ -160,36 +234,48 @@ export class SchedulerService {
   /**
    * Create briefing and start background summary generation
    */
-  private async createBriefingAndStartSummary(result: any, type: string): Promise<void> {
+  private static async createBriefingAndStartSummary(
+    result: Partial<WorkflowState>,
+    type: string
+  ): Promise<void> {
     try {
       // Import database and other dependencies
       const db = await import('../db').then(m => m.default);
       const { getUserInterests } = await import('./settings');
-      const { generateSummaryInBackground } = await import('./news_curator/graph');
+      const { generateSummaryInBackground } = await import(
+        './news_curator/graph'
+      );
 
-      const briefingTitle = `${type.charAt(0).toUpperCase() + type.slice(1)} Briefing - ${new Date().toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      })}`;
+      const curatedArticles = result.curatedArticles || [];
+
+      const briefingTitle = `${type.charAt(0).toUpperCase() + type.slice(1)} Briefing - ${new Date().toLocaleDateString(
+        'en-US',
+        {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        }
+      )}`;
 
       const topics = getUserInterests();
-      
+
       const insertBriefing = db.prepare(
         'INSERT INTO Briefings (title, topics_json, articles_json) VALUES (?, ?, ?)'
       );
-      const briefingResult = insertBriefing.run(briefingTitle, JSON.stringify(topics), JSON.stringify(result.curatedArticles));
+      const briefingResult = insertBriefing.run(
+        briefingTitle,
+        JSON.stringify(topics),
+        JSON.stringify(curatedArticles)
+      );
       const briefingId = Number(briefingResult.lastInsertRowid);
 
       const insertBriefingArticle = db.prepare(
         'INSERT INTO Briefing_Articles (briefing_id, article_id) VALUES (?, ?)'
       );
 
-      const getArticleId = db.prepare(
-        'SELECT id FROM Articles WHERE url = ?'
-      );
+      const getArticleId = db.prepare('SELECT id FROM Articles WHERE url = ?');
 
-      for (const article of result.curatedArticles) {
+      for (const article of curatedArticles) {
         const articleRow = getArticleId.get(article.url) as
           | { id: number }
           | undefined;
@@ -197,16 +283,20 @@ export class SchedulerService {
           insertBriefingArticle.run(briefingId, articleRow.id);
         }
       }
-      
+
       console.log(
-        `⏰ Created briefing "${briefingTitle}" with ${result.curatedArticles.length} articles (${result.newArticlesSaved} new, ${result.duplicatesFiltered} duplicates filtered).`
+        `⏰ Created briefing "${briefingTitle}" with ${curatedArticles.length} articles (${result.newArticlesSaved || 0} new, ${result.duplicatesFiltered || 0} duplicates filtered).`
       );
 
       // Start background summary generation for the briefing
-      generateSummaryInBackground(briefingId, result.curatedArticles, topics, false)
-        .catch((error: any) => {
-          console.error('⏰ Background summary generation failed:', error);
-        });
+      generateSummaryInBackground(
+        briefingId,
+        curatedArticles,
+        topics,
+        false
+      ).catch((error: unknown) => {
+        console.error('⏰ Background summary generation failed:', error);
+      });
     } catch (error) {
       console.error('⏰ Error creating briefing:', error);
     }
@@ -217,7 +307,7 @@ export class SchedulerService {
    */
   private clearAllJobs(): void {
     console.log(`⏰ Clearing ${this.activeJobs.size} existing jobs...`);
-    
+
     for (const [id, job] of this.activeJobs) {
       try {
         job.task.stop();
@@ -227,7 +317,7 @@ export class SchedulerService {
         console.error(`⏰ Error stopping job ${id}:`, error);
       }
     }
-    
+
     this.activeJobs.clear();
   }
 
@@ -256,16 +346,16 @@ export class SchedulerService {
     isRunning: boolean;
   }> {
     const status = [];
-    
+
     for (const [id, job] of this.activeJobs) {
       status.push({
         id,
         description: job.description,
         cronExpression: job.cronExpression,
-        isRunning: job.task.getStatus() === 'scheduled'
+        isRunning: job.task.getStatus() === 'scheduled',
       });
     }
-    
+
     return status;
   }
 
@@ -281,8 +371,8 @@ export class SchedulerService {
   /**
    * Manually trigger a briefing (for testing)
    */
-  async triggerManualBriefing(): Promise<void> {
+  static async triggerManualBriefing(): Promise<void> {
     console.log('⏰ Manually triggering briefing workflow...');
-    await this.executeBriefingWorkflow('manual' as any);
+    await SchedulerService.executeBriefingWorkflow('manual' as any);
   }
-} 
+}

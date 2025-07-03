@@ -11,6 +11,16 @@ import {
   deleteInterest,
 } from './services/settings';
 import {
+  getAllCategories,
+  createCategory,
+  updateCategory,
+  deleteCategory,
+  getInterestsForCategory,
+  setInterestsForCategory,
+  getCategorySchedule,
+  setCategorySchedule,
+} from './services/categories';
+import {
   getUserSettings,
   updateUserSettings,
   getSetting,
@@ -21,7 +31,7 @@ import { affinityAgent } from './services/news_curator/agents/affinity';
 import { getTopicRecommendations } from './services/recommendations';
 import db from './db';
 import { DatabaseWriterAgent } from './services/news_curator/agents/database_writer';
-import { Article } from '../shared/types';
+import { Article, UserSettings } from '../shared/types';
 
 // Load environment variables from .env file
 config();
@@ -47,6 +57,7 @@ makeAppWithSingleInstanceLock(async () => {
   // Set up IPC handlers for interests management and news curation
   console.log('🔗 Setting up IPC handlers...');
   setupInterestsIPC();
+  setupCategoriesIPC();
   setupNewsIPC();
   setupSettingsIPC();
 
@@ -55,60 +66,6 @@ makeAppWithSingleInstanceLock(async () => {
 
   console.log('🎉 FlowGenius is ready! Backend logs will appear here.');
 });
-
-/**
- * Helper function to create a briefing and start background summary generation
- */
-async function createBriefingAndStartSummary(result: any): Promise<void> {
-  if (!result.curatedArticles || result.curatedArticles.length === 0) {
-    return;
-  }
-
-  const briefingTitle = new Date().toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
-
-  const { getUserInterests } = await import('./services/settings');
-  const topics = getUserInterests();
-  
-  const insertBriefing = db.prepare(
-    'INSERT INTO Briefings (title, topics_json, articles_json) VALUES (?, ?, ?)'
-  );
-  const briefingResult = insertBriefing.run(briefingTitle, JSON.stringify(topics), JSON.stringify(result.curatedArticles));
-  const briefingId = Number(briefingResult.lastInsertRowid);
-
-  const insertBriefingArticle = db.prepare(
-    'INSERT INTO Briefing_Articles (briefing_id, article_id) VALUES (?, ?)'
-  );
-
-  const getArticleId = db.prepare(
-    'SELECT id FROM Articles WHERE url = ?'
-  );
-
-  for (const article of result.curatedArticles) {
-    const articleRow = getArticleId.get(article.url) as
-      | { id: number }
-      | undefined;
-    if (articleRow) {
-      insertBriefingArticle.run(briefingId, articleRow.id);
-    }
-  }
-  console.log(
-    `🗞️  Created briefing "${briefingTitle}" with ${result.curatedArticles.length} articles (${result.newArticlesSaved} new, ${result.duplicatesFiltered} duplicates filtered).`
-  );
-
-  // Start background summary generation for the briefing
-  const { generateSummaryInBackground } = await import(
-    './services/news_curator/graph'
-  );
-  
-  generateSummaryInBackground(briefingId, result.curatedArticles, topics, false)
-    .catch(error => {
-      console.error('❌ Background summary generation failed:', error);
-    });
-}
 
 /**
  * Sets up IPC handlers for interests CRUD operations
@@ -157,6 +114,120 @@ function setupInterestsIPC(): void {
       return { success: false, error: 'Failed to get topic recommendations' };
     }
   });
+}
+
+/**
+ * Sets up IPC handlers for categories CRUD operations
+ */
+function setupCategoriesIPC(): void {
+  // Get all categories
+  ipcMain.handle('categories:get-all', async () => {
+    try {
+      const categories = getAllCategories();
+      return { success: true, data: categories };
+    } catch (error) {
+      console.error('Error getting categories:', error);
+      return { success: false, error: 'Failed to get categories' };
+    }
+  });
+
+  // Create a new category
+  ipcMain.handle('categories:create', async (_, name: string) => {
+    try {
+      const categoryId = createCategory(name);
+      return { success: !!categoryId, data: categoryId };
+    } catch (error) {
+      console.error('Error creating category:', error);
+      return { success: false, error: 'Failed to create category' };
+    }
+  });
+
+  // Update category name
+  ipcMain.handle(
+    'categories:update',
+    async (_, categoryId: number, name: string) => {
+      try {
+        const success = updateCategory(categoryId, name);
+        return { success };
+      } catch (error) {
+        console.error('Error updating category:', error);
+        return { success: false, error: 'Failed to update category' };
+      }
+    }
+  );
+
+  // Delete a category
+  ipcMain.handle('categories:delete', async (_, categoryId: number) => {
+    try {
+      const success = deleteCategory(categoryId);
+      return { success };
+    } catch (error) {
+      console.error('Error deleting category:', error);
+      return { success: false, error: 'Failed to delete category' };
+    }
+  });
+
+  // Get interests for a category
+  ipcMain.handle('categories:get-interests', async (_, categoryId: number) => {
+    try {
+      const interests = getInterestsForCategory(categoryId);
+      return { success: true, data: interests };
+    } catch (error) {
+      console.error('Error getting interests for category:', error);
+      return { success: false, error: 'Failed to get interests for category' };
+    }
+  });
+
+  // Set interests for a category
+  ipcMain.handle(
+    'categories:set-interests',
+    async (_, categoryId: number, interestNames: string[]) => {
+      try {
+        const success = setInterestsForCategory(categoryId, interestNames);
+        return { success };
+      } catch (error) {
+        console.error('Error setting interests for category:', error);
+        return {
+          success: false,
+          error: 'Failed to set interests for category',
+        };
+      }
+    }
+  );
+
+  // Get category schedule
+  ipcMain.handle('categories:get-schedule', async (_, categoryId: number) => {
+    try {
+      const schedule = getCategorySchedule(categoryId);
+      return { success: true, data: schedule };
+    } catch (error) {
+      console.error('Error getting category schedule:', error);
+      return { success: false, error: 'Failed to get category schedule' };
+    }
+  });
+
+  // Set category schedule
+  ipcMain.handle(
+    'categories:set-schedule',
+    async (
+      _,
+      categoryId: number,
+      cronExpression: string,
+      isEnabled: boolean
+    ) => {
+      try {
+        const success = setCategorySchedule(
+          categoryId,
+          cronExpression,
+          isEnabled
+        );
+        return { success };
+      } catch (error) {
+        console.error('Error setting category schedule:', error);
+        return { success: false, error: 'Failed to set category schedule' };
+      }
+    }
+  );
 }
 
 /**
@@ -211,13 +282,15 @@ function setupNewsIPC(): void {
   });
 
   // Curate news (trigger workflow)
-  ipcMain.handle('curate-news', async () => {
+  ipcMain.handle('curate-news', async (_, categoryId?: number | null) => {
     try {
-      console.log('📰 Starting news curation workflow...');
+      console.log(
+        `📰 Starting news curation workflow for category ${categoryId || 'General'}...`
+      );
       const { executeNewsCurationWorkflow } = await import(
         './services/news_curator/graph'
       );
-      const result = await executeNewsCurationWorkflow();
+      const result = await executeNewsCurationWorkflow(categoryId);
       console.log('✅ News curation completed successfully');
 
       // Create briefing when there are curated articles, not just new ones
@@ -260,11 +333,15 @@ function setupNewsIPC(): void {
         );
         const { getUserInterests } = await import('./services/settings');
         const topics = getUserInterests();
-        
-        generateSummaryInBackground(briefingId, result.curatedArticles, topics, false)
-          .catch(error => {
-            console.error('❌ Background summary generation failed:', error);
-          });
+
+        generateSummaryInBackground(
+          briefingId,
+          result.curatedArticles,
+          topics,
+          false
+        ).catch(error => {
+          console.error('❌ Background summary generation failed:', error);
+        });
       }
 
       return { success: true, data: result };
@@ -338,11 +415,15 @@ function setupNewsIPC(): void {
         );
         const { getUserInterests } = await import('./services/settings');
         const topics = getUserInterests();
-        
-        generateSummaryInBackground(briefingId, result.curatedArticles, topics, false)
-          .catch(error => {
-            console.error('❌ Background summary generation failed:', error);
-          });
+
+        generateSummaryInBackground(
+          briefingId,
+          result.curatedArticles,
+          topics,
+          false
+        ).catch(error => {
+          console.error('❌ Background summary generation failed:', error);
+        });
       }
 
       return { success: true, data: result };
@@ -508,21 +589,25 @@ function setupNewsIPC(): void {
         );
         const { getUserInterests } = await import('./services/settings');
         const topics = getUserInterests();
-        
-        generateSummaryInBackground(briefingId, result.curatedArticles, topics, false)
-          .catch(error => {
-            console.error('❌ Background summary generation failed:', error);
-          });
+
+        generateSummaryInBackground(
+          briefingId,
+          result.curatedArticles,
+          topics,
+          false
+        ).catch(error => {
+          console.error('❌ Background summary generation failed:', error);
+        });
       }
 
       // Get the newly curated articles with their personalization scores
       const curatedArticles = result.curatedArticles || [];
-      let articles: any[] = [];
+      let articles: Article[] = [];
 
       if (curatedArticles.length > 0) {
         // Create a prepared statement to get personalization scores for the new articles
         const placeholders = curatedArticles.map(() => '?').join(',');
-        const urls = curatedArticles.map((article: any) => article.url);
+        const urls = curatedArticles.map((article: Article) => article.url);
 
         articles = db
           .prepare(
@@ -533,7 +618,7 @@ function setupNewsIPC(): void {
             ORDER BY personalization_score DESC, fetched_at DESC
           `
           )
-          .all(...urls);
+          .all(...urls) as Article[];
 
         console.log(
           `📊 Returning ${articles.length} newly curated articles (out of ${curatedArticles.length} processed)`
@@ -1047,11 +1132,11 @@ function setupSettingsIPC(): void {
   ipcMain.handle('settings:update', async (_, settings) => {
     try {
       updateUserSettings(settings);
-      
+
       // Update scheduler with new settings
       const scheduler = SchedulerService.getInstance();
       scheduler.updateSchedules();
-      
+
       return { success: true };
     } catch (error) {
       console.error('Error updating user settings:', error);
@@ -1060,9 +1145,9 @@ function setupSettingsIPC(): void {
   });
 
   // Get a specific setting
-  ipcMain.handle('settings:get-setting', async (_, key: string) => {
+  ipcMain.handle('settings:get-setting', async (_, key: keyof UserSettings) => {
     try {
-      const value = getSetting(key as any);
+      const value = getSetting(key);
       return { success: true, data: value };
     } catch (error) {
       console.error(`Error getting setting ${key}:`, error);
@@ -1071,21 +1156,23 @@ function setupSettingsIPC(): void {
   });
 
   // Set a specific setting
-  ipcMain.handle('settings:set-setting', async (_, key: string, value: any) => {
-    try {
-      setSetting(key as any, value);
-      return { success: true };
-    } catch (error) {
-      console.error(`Error setting ${key}:`, error);
-      return { success: false, error: `Failed to set setting ${key}` };
+  ipcMain.handle(
+    'settings:set-setting',
+    async (_, key: keyof UserSettings, value: string | boolean) => {
+      try {
+        setSetting(key, value);
+        return { success: true };
+      } catch (error) {
+        console.error(`Error setting ${key}:`, error);
+        return { success: false, error: `Failed to set setting ${key}` };
+      }
     }
-  });
+  );
 
   // Manual trigger for testing scheduler
   ipcMain.handle('scheduler:trigger-manual', async () => {
     try {
-      const scheduler = SchedulerService.getInstance();
-      await scheduler.triggerManualBriefing();
+      await SchedulerService.triggerManualBriefing();
       return { success: true };
     } catch (error) {
       console.error('Error triggering manual briefing:', error);

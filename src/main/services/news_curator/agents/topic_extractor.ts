@@ -1,138 +1,154 @@
 /**
- * TopicExtractorAgent - Extracts topics from articles using OpenAI
- * This agent analyzes article content and extracts relevant topics for personalization
+ * TopicExtractorAgent - Extracts topics from article content using AI
+ * This agent analyzes article content and identifies relevant topics for personalization
  */
 
 import { ChatOpenAI } from '@langchain/openai';
-import { z } from 'zod';
+import { PromptTemplate } from '@langchain/core/prompts';
 import db from '../../../db';
-
-// Schema for topic extraction response
-const TopicExtractionSchema = z.object({
-  topics: z.array(
-    z.object({
-      name: z
-        .string()
-        .describe(
-          'The topic name (e.g., "Artificial Intelligence", "Climate Change")'
-        ),
-      relevance: z
-        .number()
-        .min(0)
-        .max(1)
-        .describe('Relevance score between 0 and 1'),
-    })
-  ),
-});
+import type { WorkflowState } from '../../../../shared/types';
 
 /**
- * TopicExtractorAgent function that extracts topics from articles using OpenAI
- * @param state - State containing articles to analyze
- * @returns Updated state with topic extraction complete
+ * Interface for topic extraction result
  */
-export async function topicExtractorAgent(state: any): Promise<any> {
-  try {
-    const { curatedArticles } = state;
+interface TopicExtractionResult {
+  topics: Array<{
+    name: string;
+    relevance: number; // 0-1 score
+  }>;
+}
 
-    if (!curatedArticles || curatedArticles.length === 0) {
+/**
+ * TopicExtractorAgent function that extracts topics from curated articles
+ * @param state - State containing curated articles
+ * @returns Updated state with topics extracted
+ */
+export async function topicExtractorAgent(
+  state: Partial<WorkflowState>
+): Promise<Partial<WorkflowState>> {
+  try {
+    const curatedArticles = state.curatedArticles || [];
+
+    if (curatedArticles.length === 0) {
       console.log('No articles to extract topics from');
       return {
+        ...state,
         topicsExtracted: true,
+        topicsExtractedCount: 0,
       };
     }
 
-    const openaiApiKey = process.env.OPENAI_API_KEY;
-    if (!openaiApiKey) {
-      throw new Error('OPENAI_API_KEY environment variable not found');
-    }
+    console.log(
+      `🏷️ Extracting topics from ${curatedArticles.length} articles...`
+    );
 
-    console.log(`Extracting topics from ${curatedArticles.length} articles...`);
-
-    // Initialize OpenAI model
     const llm = new ChatOpenAI({
-      model: 'gpt-4o-mini',
-      apiKey: openaiApiKey,
-      temperature: 0.1, // Low temperature for consistent results
+      modelName: 'gpt-4o-mini',
+      temperature: 0.3,
+      maxTokens: 500,
     });
 
-    // Create structured output chain
-    const structuredLlm = llm.withStructuredOutput(TopicExtractionSchema);
+    const prompt = PromptTemplate.fromTemplate(`
+You are a topic extraction expert. Given an article title and description, extract 3-5 relevant topics that best describe the content.
 
-    // Prepare database statements
-    const insertTopic = db.prepare(`
-      INSERT OR IGNORE INTO Topics (name) VALUES (?)
-    `);
-    const getTopicId = db.prepare(`
-      SELECT id FROM Topics WHERE name = ?
-    `);
-    const getArticleId = db.prepare(`
-      SELECT id FROM Articles WHERE url = ?
-    `);
-    const insertArticleTopic = db.prepare(`
-      INSERT OR REPLACE INTO Article_Topics (article_id, topic_id, relevance_score)
-      VALUES (?, ?, ?)
-    `);
+Article:
+Title: {title}
+Description: {description}
+
+Return topics as a JSON array with format:
+[
+  {{"name": "Topic Name", "relevance": 0.9}},
+  {{"name": "Another Topic", "relevance": 0.7}}
+]
+
+Topics should be:
+- Specific and descriptive
+- Relevant to the article content
+- Useful for personalization
+- Scored 0-1 for relevance to the article
+
+Only return the JSON array, no other text.
+`);
 
     let totalTopicsExtracted = 0;
 
-    // Process articles in batches to avoid overwhelming the API
+    // Prepare database statements
+    const getArticleId = db.prepare('SELECT id FROM Articles WHERE url = ?');
+    const insertTopic = db.prepare(`
+      INSERT OR IGNORE INTO Topics (name, created_at) 
+      VALUES (?, datetime('now'))
+    `);
+    const getTopicId = db.prepare('SELECT id FROM Topics WHERE name = ?');
+    const insertArticleTopic = db.prepare(`
+      INSERT OR REPLACE INTO Article_Topics (article_id, topic_id, relevance_score, created_at)
+      VALUES (?, ?, ?, datetime('now'))
+    `);
+
+    // Process each article
     for (const article of curatedArticles) {
       try {
         // Get article ID from database
-        const articleRow = getArticleId.get(article.url) as
+        const articleData = getArticleId.get(article.url) as
           | { id: number }
           | undefined;
-        if (!articleRow) {
-          console.warn(`Article not found in database: ${article.title}`);
+        if (!articleData) {
+          console.warn(`Article not found in database: ${article.url}`);
           continue;
         }
 
-        const articleId = articleRow.id;
+        // Extract topics using AI
+        const response = await llm.invoke(
+          await prompt.format({
+            title: article.title,
+            description: article.description || '',
+          })
+        );
 
-        // Create prompt for topic extraction
-        const prompt = `Analyze the following news article and extract the most relevant topics. Focus on:
-- Main subject areas (e.g., Technology, Politics, Sports)
-- Specific domains (e.g., Artificial Intelligence, Climate Change, Cryptocurrency)
-- Industry sectors (e.g., Healthcare, Finance, Energy)
-
-IMPORTANT: Only extract broad, well-known topics that would be useful for news categorization. Avoid overly specific or niche topics.
-
-Article Title: ${article.title}
-Article Description: ${article.description}
-Source: ${article.source}
-
-Extract 2-4 most relevant topics with their relevance scores.`;
-
-        // Extract topics using OpenAI
-        const response = await structuredLlm.invoke(prompt);
+        // Parse AI response
+        let extractionResult: TopicExtractionResult;
+        try {
+          const content = response.content as string;
+          const topics = JSON.parse(content);
+          extractionResult = { topics };
+        } catch (parseError) {
+          console.warn(
+            `Failed to parse AI response for article "${article.title}":`,
+            parseError
+          );
+          continue;
+        }
 
         // Store topics in database
-        for (const topic of response.topics) {
-          // Insert topic (ignore if exists)
-          insertTopic.run(topic.name);
+        for (const topic of extractionResult.topics) {
+          try {
+            // Insert topic (ignore if exists)
+            insertTopic.run(topic.name);
 
-          // Get topic ID
-          const topicRow = getTopicId.get(topic.name) as
-            | { id: number }
-            | undefined;
-          if (!topicRow) {
-            console.error(`Failed to get topic ID for: ${topic.name}`);
-            continue;
+            // Get topic ID
+            const topicData = getTopicId.get(topic.name) as
+              | { id: number }
+              | undefined;
+            if (!topicData) {
+              console.warn(`Failed to get topic ID for: ${topic.name}`);
+              continue;
+            }
+
+            // Link article to topic with relevance score
+            insertArticleTopic.run(
+              articleData.id,
+              topicData.id,
+              topic.relevance
+            );
+
+            totalTopicsExtracted++;
+          } catch (topicError) {
+            console.error(`Error storing topic "${topic.name}":`, topicError);
           }
-
-          // Link article to topic
-          insertArticleTopic.run(articleId, topicRow.id, topic.relevance);
-          totalTopicsExtracted++;
         }
 
         console.log(
-          `Extracted ${response.topics.length} topics for: ${article.title}`
+          `🏷️ Extracted ${extractionResult.topics.length} topics for "${article.title}"`
         );
-
-        // Add small delay to respect rate limits
-        await new Promise(resolve => {
-          setTimeout(resolve, 100);
-        });
       } catch (error) {
         console.error(
           `Error extracting topics for article "${article.title}":`,
@@ -142,31 +158,23 @@ Extract 2-4 most relevant topics with their relevance scores.`;
     }
 
     console.log(
-      `Topic extraction complete: ${totalTopicsExtracted} topic associations created`
+      `✅ Topic extraction complete: ${totalTopicsExtracted} topics extracted`
     );
 
-    // Check total topic count and warn if getting high
-    const totalTopicsStmt = db.prepare('SELECT COUNT(*) as count FROM Topics');
-    const totalTopics = (totalTopicsStmt.get() as { count: number }).count;
-
-    console.log(`Total topics in database: ${totalTopics}`);
-    if (totalTopics > 500) {
-      console.warn('⚠️  Topic count is getting high. Consider topic cleanup.');
-    }
-
     return {
+      ...state,
       topicsExtracted: true,
       topicsExtractedCount: totalTopicsExtracted,
     };
   } catch (error) {
     const errorMessage =
-      error instanceof Error
-        ? error.message
-        : 'Unknown error occurred in TopicExtractorAgent';
+      error instanceof Error ? error.message : 'Unknown error occurred';
     console.error('TopicExtractorAgent error:', errorMessage);
 
     return {
+      ...state,
       topicsExtracted: false,
+      topicsExtractedCount: 0,
       error: errorMessage,
     };
   }

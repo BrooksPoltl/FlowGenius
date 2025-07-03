@@ -28,19 +28,27 @@ export class NotificationAgent {
    * Main agent function to send notification
    * Called by the LangGraph workflow after successful briefing creation
    */
-  static async sendBriefingNotification(state: NotificationState): Promise<NotificationState> {
+  static async sendBriefingNotification(
+    state: NotificationState
+  ): Promise<NotificationState> {
     try {
-      console.log(`📱 NotificationAgent: Processing notification for briefing ${state.briefingId}`);
+      console.log(
+        `📱 NotificationAgent: Processing notification for briefing ${state.briefingId}`
+      );
 
       // Check if notifications are enabled
       const settings = getUserSettings();
       if (!settings.notifications_enabled) {
-        console.log('📱 NotificationAgent: Notifications are disabled, skipping');
+        console.log(
+          '📱 NotificationAgent: Notifications are disabled, skipping'
+        );
         return state;
       }
 
       // Get the briefing with summary data
-      const briefing = DatabaseWriterAgent.getBriefingWithSummary(state.briefingId);
+      const briefing = DatabaseWriterAgent.getBriefingWithSummary(
+        state.briefingId
+      );
       if (!briefing) {
         console.error('📱 NotificationAgent: Briefing not found');
         return state;
@@ -75,14 +83,18 @@ export class NotificationAgent {
 
       notification.show();
 
-      console.log(`📱 NotificationAgent: Notification sent - "${notificationTitle}"`);
+      console.log(
+        `📱 NotificationAgent: Notification sent - "${notificationTitle}"`
+      );
 
       return {
         ...state,
-        summary: briefing.summary_json ? {
-          title: notificationTitle,
-          subtitle: notificationBody,
-        } : undefined,
+        summary: briefing.summary_json
+          ? {
+              title: notificationTitle,
+              subtitle: notificationBody,
+            }
+          : undefined,
       };
     } catch (error) {
       console.error('📱 NotificationAgent: Error sending notification:', error);
@@ -135,7 +147,10 @@ export class NotificationAgent {
       notification.show();
       console.log('📱 NotificationAgent: Test notification sent');
     } catch (error) {
-      console.error('📱 NotificationAgent: Error sending test notification:', error);
+      console.error(
+        '📱 NotificationAgent: Error sending test notification:',
+        error
+      );
     }
   }
-} 
+}

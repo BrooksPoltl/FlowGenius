@@ -4,6 +4,7 @@
  */
 
 import { getUserInterests } from '../../settings';
+import type { WorkflowState } from '../../../../shared/types';
 
 /**
  * SettingsAgent function that retrieves user interests from the database
@@ -11,7 +12,10 @@ import { getUserInterests } from '../../settings';
  * @returns Updated state with user interests
  */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export async function settingsAgent(_state: any): Promise<any> {
+export async function settingsAgent(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _state: Partial<WorkflowState>
+): Promise<Partial<WorkflowState>> {
   try {
     const interests = getUserInterests();
 

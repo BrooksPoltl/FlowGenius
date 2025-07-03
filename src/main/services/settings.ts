@@ -5,6 +5,7 @@
 
 import db from '../db';
 import { runMigration001 } from '../db/migrations/001_add_interest_discovery_tracking';
+import { ensureDefaultCategory } from './categories';
 
 /**
  * Initializes default settings and seeds default interests if none exist
@@ -13,6 +14,9 @@ export function initializeSettings(): void {
   try {
     // Run database migrations first
     runMigration001();
+
+    // Ensure default category exists and assign unassigned interests
+    ensureDefaultCategory();
 
     const existingInterests = getUserInterests();
 
@@ -68,10 +72,26 @@ export function getUserInterests(): string[] {
  */
 export function addInterest(interest: string): boolean {
   try {
-    const stmt = db.prepare(
-      "INSERT INTO Interests (name, created_at) VALUES (?, datetime('now'))"
-    );
-    stmt.run(interest);
+    const transaction = db.transaction(() => {
+      // Add the interest
+      const stmt = db.prepare(
+        "INSERT INTO Interests (name, created_at) VALUES (?, datetime('now'))"
+      );
+      const result = stmt.run(interest);
+      const interestId = result.lastInsertRowid as number;
+
+      // Assign to General category by default
+      const generalCategory = db
+        .prepare('SELECT id FROM Categories WHERE name = ?')
+        .get('General') as { id: number } | undefined;
+      if (generalCategory) {
+        db.prepare(
+          "INSERT INTO Interests_Categories (interest_id, category_id, created_at) VALUES (?, ?, datetime('now'))"
+        ).run(interestId, generalCategory.id);
+      }
+    });
+
+    transaction();
     return true;
   } catch (error) {
     console.error('Error adding interest:', error);

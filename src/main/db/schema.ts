@@ -123,6 +123,40 @@ export const CREATE_USER_SETTINGS_TABLE = `
   );
 `;
 
+export const CREATE_CATEGORIES_TABLE = `
+  CREATE TABLE IF NOT EXISTS Categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
+`;
+
+export const CREATE_INTERESTS_CATEGORIES_TABLE = `
+  CREATE TABLE IF NOT EXISTS Interests_Categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    interest_id INTEGER NOT NULL,
+    category_id INTEGER NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (interest_id) REFERENCES Interests (id) ON DELETE CASCADE,
+    FOREIGN KEY (category_id) REFERENCES Categories (id) ON DELETE CASCADE,
+    UNIQUE(interest_id, category_id)
+  );
+`;
+
+export const CREATE_CATEGORY_SCHEDULES_TABLE = `
+  CREATE TABLE IF NOT EXISTS Category_Schedules (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    category_id INTEGER NOT NULL,
+    cron_expression TEXT NOT NULL,
+    is_enabled BOOLEAN DEFAULT false,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (category_id) REFERENCES Categories (id) ON DELETE CASCADE,
+    UNIQUE(category_id)
+  );
+`;
+
 export interface Interest {
   id: number;
   name: string;
@@ -145,6 +179,29 @@ export interface UserSetting {
   id: number;
   key: string;
   value: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Category {
+  id: number;
+  name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InterestCategory {
+  id: number;
+  interest_id: number;
+  category_id: number;
+  created_at: string;
+}
+
+export interface CategorySchedule {
+  id: number;
+  category_id: number;
+  cron_expression: string;
+  is_enabled: boolean;
   created_at: string;
   updated_at: string;
 }

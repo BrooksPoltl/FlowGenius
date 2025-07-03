@@ -12,6 +12,7 @@ import {
   Save,
   RefreshCw,
 } from 'lucide-react';
+import { CategoryManagement } from '../components/ui/CategoryManagement';
 
 interface UserSettings {
   schedule_morning_enabled: boolean;
@@ -155,11 +156,13 @@ export function SettingsScreen() {
   const testManualBriefing = async () => {
     setIsTestingScheduler(true);
     setError(null);
-    
+
     try {
       const result = await window.electronAPI.triggerManualBriefing();
       if (result.success) {
-        setSuccessMessage('Manual briefing triggered! Check the console for progress.');
+        setSuccessMessage(
+          'Manual briefing triggered! Check the console for progress.'
+        );
         setTimeout(() => setSuccessMessage(null), 5000);
       } else {
         setError(result.error || 'Failed to trigger manual briefing');
@@ -242,7 +245,10 @@ export function SettingsScreen() {
                       type="checkbox"
                       checked={settings.schedule_morning_enabled}
                       onChange={e =>
-                        handleSettingChange('schedule_morning_enabled', e.target.checked)
+                        handleSettingChange(
+                          'schedule_morning_enabled',
+                          e.target.checked
+                        )
                       }
                       className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                     />
@@ -273,7 +279,10 @@ export function SettingsScreen() {
                       type="checkbox"
                       checked={settings.schedule_evening_enabled}
                       onChange={e =>
-                        handleSettingChange('schedule_evening_enabled', e.target.checked)
+                        handleSettingChange(
+                          'schedule_evening_enabled',
+                          e.target.checked
+                        )
                       }
                       className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                     />
@@ -313,7 +322,10 @@ export function SettingsScreen() {
                   type="checkbox"
                   checked={settings.notifications_enabled}
                   onChange={e =>
-                    handleSettingChange('notifications_enabled', e.target.checked)
+                    handleSettingChange(
+                      'notifications_enabled',
+                      e.target.checked
+                    )
                   }
                   className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                 />
@@ -326,7 +338,7 @@ export function SettingsScreen() {
                   </p>
                 </div>
               </label>
-              
+
               {/* Test Button */}
               <div className="pt-4 border-t border-gray-200">
                 <button
@@ -334,7 +346,9 @@ export function SettingsScreen() {
                   disabled={isTestingScheduler}
                   className="px-4 py-2 bg-green-600 text-white rounded-md text-sm hover:bg-green-700 transition-colors disabled:opacity-50"
                 >
-                  {isTestingScheduler ? 'Testing...' : 'Test Briefing & Notification'}
+                  {isTestingScheduler
+                    ? 'Testing...'
+                    : 'Test Briefing & Notification'}
                 </button>
                 <p className="text-xs text-gray-500 mt-2">
                   Manually trigger a briefing to test the notification system
@@ -342,6 +356,12 @@ export function SettingsScreen() {
               </div>
             </div>
           </div>
+
+          {/* Category Management */}
+          <CategoryManagement
+            onError={setError}
+            onSuccess={setSuccessMessage}
+          />
 
           {/* Interests Management */}
           <div className="bg-white p-6 rounded-lg shadow-sm border">
@@ -375,7 +395,8 @@ export function SettingsScreen() {
             <div className="space-y-2">
               {interests.length === 0 ? (
                 <p className="text-gray-500 text-sm">
-                  No interests added yet. Add some topics you're interested in to get personalized news.
+                  No interests added yet. Add some topics you're interested in
+                  to get personalized news.
                 </p>
               ) : (
                 interests.map(interest => (
@@ -401,4 +422,4 @@ export function SettingsScreen() {
       </main>
     </div>
   );
-} 
+}

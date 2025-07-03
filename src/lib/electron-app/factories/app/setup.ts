@@ -21,7 +21,7 @@ function createSystemTray() {
   // Create a simple tray icon (you can replace with actual icon file)
   const trayIcon = nativeImage.createEmpty();
   tray = new Tray(trayIcon);
-  
+
   const contextMenu = Menu.buildFromTemplate([
     {
       label: 'Show FlowGenius',
@@ -30,20 +30,20 @@ function createSystemTray() {
           mainWindow.show();
           mainWindow.focus();
         }
-      }
+      },
     },
     {
       label: 'Quit',
       click: () => {
         (app as any).isQuitting = true;
         app.quit();
-      }
-    }
+      },
+    },
   ]);
-  
+
   tray.setToolTip('FlowGenius - AI News Curator');
   tray.setContextMenu(contextMenu);
-  
+
   // Show window when tray icon is clicked
   tray.on('click', () => {
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -73,16 +73,22 @@ export async function makeAppSetup(createWindow: () => Promise<BrowserWindow>) {
   createSystemTray();
 
   // Handle window close event - minimize to tray instead of quitting
-  window.on('close', (event) => {
+  window.on('close', event => {
     if (!(app as any).isQuitting && !window.isDestroyed()) {
       event.preventDefault();
       window.hide();
-      
+
       // Show notification on first minimize (only on Windows where displayBalloon exists)
-      if (tray && !window.isDestroyed() && !window.isMinimized() && process.platform === 'win32') {
+      if (
+        tray &&
+        !window.isDestroyed() &&
+        !window.isMinimized() &&
+        process.platform === 'win32'
+      ) {
         tray.displayBalloon({
           title: 'FlowGenius',
-          content: 'FlowGenius is running in the background. Click the tray icon to open.',
+          content:
+            'FlowGenius is running in the background. Click the tray icon to open.',
         });
       }
     }
@@ -122,7 +128,8 @@ export async function makeAppSetup(createWindow: () => Promise<BrowserWindow>) {
   app.on('window-all-closed', () => {
     // On macOS, keep the app running even when all windows are closed
     if (PLATFORM.IS_MAC) {
-      return;
+      // Keep app running in dock
+      console.log('macOS: Keeping app running in dock');
     }
     // On other platforms, keep running in system tray
   });

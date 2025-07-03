@@ -4,20 +4,25 @@
  */
 
 import db from '../../../db';
+import type { WorkflowState } from '../../../../shared/types';
 
 /**
  * RankingAgent function that calculates personalization scores for articles
  * @param state - State containing curated articles
  * @returns Updated state with ranking complete
  */
-export async function rankingAgent(state: any): Promise<any> {
+export async function rankingAgent(
+  state: Partial<WorkflowState>
+): Promise<Partial<WorkflowState>> {
   try {
-    const { curatedArticles } = state;
+    const curatedArticles = state.curatedArticles || [];
 
-    if (!curatedArticles || curatedArticles.length === 0) {
+    if (curatedArticles.length === 0) {
       console.log('No articles to rank');
       return {
+        ...state,
         articlesRanked: true,
+        rankedCount: 0,
       };
     }
 
@@ -46,78 +51,76 @@ export async function rankingAgent(state: any): Promise<any> {
 
     let rankedCount = 0;
 
-    // Process each article
     for (const article of curatedArticles) {
       try {
         // Get article ID from database
-        const articleRow = getArticleId.get(article.url) as
+        const articleData = getArticleId.get(article.url) as
           | { id: number }
           | undefined;
-        if (!articleRow) {
-          console.warn(`Article not found in database: ${article.title}`);
+        if (!articleData) {
+          console.warn(`Article not found in database: ${article.url}`);
           continue;
         }
 
-        const articleId = articleRow.id;
-
-        // Get article topics with their relevance and user affinity scores
-        const topics = getArticleTopics.all(articleId) as Array<{
+        // Get topics and their affinities for this article
+        const topicData = getArticleTopics.all(articleData.id) as Array<{
           name: string;
           relevance_score: number;
           affinity_score: number | null;
         }>;
 
-        if (topics.length === 0) {
-          // No topics extracted for this article, set default score
-          updatePersonalizationScore.run(0.0, articleId);
+        if (topicData.length === 0) {
+          // No topics extracted yet, set default score
+          updatePersonalizationScore.run(0.0, articleData.id);
           continue;
         }
 
-        // Calculate personalization score
+        // Calculate personalization score based on topic affinities
         let totalScore = 0;
         let totalWeight = 0;
 
-        for (const topic of topics) {
-          const affinityScore = topic.affinity_score || 0; // Default to 0 if no affinity data
-          const relevanceScore = topic.relevance_score;
+        for (const topic of topicData) {
+          const relevanceScore = topic.relevance_score || 0;
+          const affinityScore = topic.affinity_score || 0;
 
-          // Weighted score: affinity * relevance
+          // Weight the affinity score by how relevant the topic is to the article
           const weightedScore = affinityScore * relevanceScore;
           totalScore += weightedScore;
           totalWeight += relevanceScore;
         }
 
-        // Normalize the score (average weighted by relevance)
+        // Calculate final personalization score (0-1 scale)
         const personalizationScore =
           totalWeight > 0 ? totalScore / totalWeight : 0;
 
         // Update the article's personalization score
-        updatePersonalizationScore.run(personalizationScore, articleId);
+        updatePersonalizationScore.run(personalizationScore, articleData.id);
         rankedCount++;
 
         console.log(
-          `Ranked "${article.title}": score = ${personalizationScore.toFixed(3)}`
+          `📊 Ranked "${article.title}": ${personalizationScore.toFixed(3)} (${topicData.length} topics)`
         );
       } catch (error) {
         console.error(`Error ranking article "${article.title}":`, error);
       }
     }
 
-    console.log(`Ranking complete: ${rankedCount} articles ranked`);
+    console.log(`✅ Ranking complete: ${rankedCount} articles ranked`);
 
     return {
+      ...state,
       articlesRanked: true,
       rankedCount,
     };
   } catch (error) {
     const errorMessage =
-      error instanceof Error
-        ? error.message
-        : 'Unknown error occurred in RankingAgent';
+      error instanceof Error ? error.message : 'Unknown error occurred';
     console.error('RankingAgent error:', errorMessage);
 
     return {
+      ...state,
       articlesRanked: false,
+      rankedCount: 0,
       error: errorMessage,
     };
   }

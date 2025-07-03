@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { ArticleCard, Article as CardArticle } from './ui/ArticleCard';
+import { Category } from '../../shared/types';
 
 interface Article {
   id: string;
@@ -24,11 +25,11 @@ interface ArticlesViewProps {
   onClearSelection?: () => void;
 }
 
-export function ArticlesView({ 
-  onBriefingChange, 
-  selectedArticles, 
-  selectedBriefingId, 
-  onClearSelection 
+export function ArticlesView({
+  onBriefingChange,
+  selectedArticles,
+  selectedBriefingId,
+  onClearSelection,
 }: ArticlesViewProps) {
   console.log('🔍 [RENDERER] ArticlesView component rendering...');
 
@@ -44,6 +45,10 @@ export function ArticlesView({
     scheduled: string[];
     cooledDown: string[];
   } | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(
+    null
+  );
 
   /**
    * Load latest articles from the current briefing
@@ -208,12 +213,14 @@ export function ArticlesView({
     setLoading(true);
     setError(null);
     try {
-      console.log('🔄 [RENDERER] Starting news curation...');
+      console.log(
+        `🔄 [RENDERER] Starting news curation for category ${selectedCategoryId || 'General'}...`
+      );
 
       // Check cooldown status before starting
       await checkCooldownStatus();
 
-      const result = await window.electronAPI.curateNews();
+      const result = await window.electronAPI.curateNews(selectedCategoryId);
       console.log('🔄 [RENDERER] Curation result:', result);
 
       if (result.success) {
@@ -221,7 +228,11 @@ export function ArticlesView({
         await loadArticles();
 
         // Check if any articles were found
-        if (result.data && (!result.data.curatedArticles || result.data.curatedArticles.length === 0)) {
+        if (
+          result.data &&
+          (!result.data.curatedArticles ||
+            result.data.curatedArticles.length === 0)
+        ) {
           setError(
             'No articles found. Your interests might be on cooldown or no relevant articles are available.'
           );
@@ -253,7 +264,11 @@ export function ArticlesView({
         // Reset cooldown status since we bypassed it
         setCooldownStatus({ scheduled: [], cooledDown: [] });
 
-        if (result.data && (!result.data.curatedArticles || result.data.curatedArticles.length === 0)) {
+        if (
+          result.data &&
+          (!result.data.curatedArticles ||
+            result.data.curatedArticles.length === 0)
+        ) {
           setError(
             'No articles found even with force refresh. This may indicate API issues or no relevant content is available.'
           );
@@ -302,20 +317,27 @@ export function ArticlesView({
   };
 
   // Handle selected articles from sidebar or load latest articles
+  // Load categories on component mount
+  useEffect(() => {
+    loadCategories();
+  }, []);
+
   useEffect(() => {
     if (selectedArticles && selectedBriefingId) {
       // Use selected articles from sidebar
       console.log('🔍 [RENDERER] Using selected articles from sidebar');
-      setArticles(selectedArticles.map((article, index) => ({
-        id: article.url || index.toString(),
-        title: article.title,
-        description: article.description,
-        url: article.url,
-        imageUrl: article.thumbnail,
-        publishedAt: article.published_at || '',
-        source: article.source,
-        score: article.personalizationScore,
-      })));
+      setArticles(
+        selectedArticles.map((article, index) => ({
+          id: article.url || index.toString(),
+          title: article.title,
+          description: article.description,
+          url: article.url,
+          imageUrl: article.thumbnail,
+          publishedAt: article.published_at || '',
+          source: article.source,
+          score: article.personalizationScore,
+        }))
+      );
       setCurrentBriefingId(selectedBriefingId);
       onBriefingChange(selectedBriefingId);
       // Don't set lastUpdated for selected articles since we don't have creation time
@@ -326,7 +348,27 @@ export function ArticlesView({
       loadArticles();
     }
     checkCooldownStatus();
-  }, [selectedArticles, selectedBriefingId, onBriefingChange, loadArticles, checkCooldownStatus]);
+  }, [
+    selectedArticles,
+    selectedBriefingId,
+    onBriefingChange,
+    loadArticles,
+    checkCooldownStatus,
+  ]);
+
+  /**
+   * Load categories from backend
+   */
+  const loadCategories = async () => {
+    try {
+      const result = await window.electronAPI.getAllCategories();
+      if (result.success) {
+        setCategories(result.data);
+      }
+    } catch (error) {
+      console.error('Error loading categories:', error);
+    }
+  };
 
   // Add a simple test to verify IPC is working
   useEffect(() => {
@@ -458,7 +500,9 @@ export function ArticlesView({
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
-              {selectedArticles ? 'Historical Articles' : 'Your Curated Articles'}
+              {selectedArticles
+                ? 'Historical Articles'
+                : 'Your Curated Articles'}
             </h1>
             {lastUpdated && (
               <p className="text-sm text-gray-500 mt-1">
@@ -488,7 +532,32 @@ export function ArticlesView({
               </div>
             )}
           </div>
-          <div className="flex space-x-3">
+          <div className="flex items-center space-x-3">
+            {/* Category Dropdown */}
+            {!selectedArticles && categories.length > 0 && (
+              <div className="flex items-center space-x-2">
+                <label className="text-sm font-medium text-gray-700">
+                  Category:
+                </label>
+                <select
+                  value={selectedCategoryId || ''}
+                  onChange={e =>
+                    setSelectedCategoryId(
+                      e.target.value ? Number(e.target.value) : null
+                    )
+                  }
+                  className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">General (All Interests)</option>
+                  {categories.map(category => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             {selectedArticles && onClearSelection && (
               <button
                 onClick={onClearSelection}

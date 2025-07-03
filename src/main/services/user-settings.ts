@@ -4,7 +4,7 @@
  */
 
 import db from '../db';
-import type { UserSetting } from '../db/schema';
+// UserSetting type imported but not used - removed
 
 /**
  * Interface for user settings with typed values
@@ -26,10 +26,13 @@ export function getUserSettings(): UserSettings {
       .prepare('SELECT key, value FROM UserSettings')
       .all() as Array<{ key: string; value: string }>;
 
-    const settingsMap = settings.reduce((acc, setting) => {
-      acc[setting.key] = setting.value;
-      return acc;
-    }, {} as Record<string, string>);
+    const settingsMap = settings.reduce(
+      (acc, setting) => {
+        acc[setting.key] = setting.value;
+        return acc;
+      },
+      {} as Record<string, string>
+    );
 
     return {
       schedule_morning_enabled: settingsMap.schedule_morning_enabled === 'true',
@@ -110,18 +113,23 @@ export function getSetting(key: keyof UserSettings): string | boolean {
 /**
  * Set a specific setting value
  */
-export function setSetting(key: keyof UserSettings, value: string | boolean): void {
+export function setSetting(
+  key: keyof UserSettings,
+  value: string | boolean
+): void {
   try {
     const stringValue = typeof value === 'boolean' ? value.toString() : value;
-    
-    db.prepare(`
+
+    db.prepare(
+      `
       INSERT OR REPLACE INTO UserSettings (key, value, updated_at) 
       VALUES (?, ?, CURRENT_TIMESTAMP)
-    `).run(key, stringValue);
+    `
+    ).run(key, stringValue);
 
     console.log(`Setting ${key} updated to ${stringValue}`);
   } catch (error) {
     console.error(`Error setting ${key}:`, error);
     throw error;
   }
-} 
+}

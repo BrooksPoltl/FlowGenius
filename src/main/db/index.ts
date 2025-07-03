@@ -17,10 +17,14 @@ import {
   CREATE_BRIEFING_ARTICLES_TABLE,
   CREATE_WORKFLOW_RUNS_TABLE,
   CREATE_USER_SETTINGS_TABLE,
+  CREATE_CATEGORIES_TABLE,
+  CREATE_INTERESTS_CATEGORIES_TABLE,
+  CREATE_CATEGORY_SCHEDULES_TABLE,
 } from './schema';
 import { up as migration003Up } from './migrations/003_add_summary_column';
 import { up as migration004Up } from './migrations/004_add_briefing_json_columns';
 import { up as migration005Up } from './migrations/005_add_user_settings_table';
+import { up as migration006Up } from './migrations/006_add_categories_tables';
 
 // Get the path to the user data directory
 const userDataPath = app.getPath('userData');
@@ -45,6 +49,9 @@ db.exec(CREATE_BRIEFINGS_TABLE);
 db.exec(CREATE_BRIEFING_ARTICLES_TABLE);
 db.exec(CREATE_WORKFLOW_RUNS_TABLE);
 db.exec(CREATE_USER_SETTINGS_TABLE);
+db.exec(CREATE_CATEGORIES_TABLE);
+db.exec(CREATE_INTERESTS_CATEGORIES_TABLE);
+db.exec(CREATE_CATEGORY_SCHEDULES_TABLE);
 
 // Run migrations to add missing columns if they don't exist
 runMigrations(db);
@@ -161,6 +168,23 @@ function runMigrations(db: DatabaseType): void {
       console.log('Running migration 005: Add UserSettings table...');
       migration005Up(db);
       console.log('Migration 005 completed');
+    }
+
+    // Migration 006: Add Categories tables
+    const categoriesTableExists = db
+      .prepare(
+        `
+      SELECT COUNT(*) as count 
+      FROM sqlite_master 
+      WHERE type='table' AND name='Categories'
+    `
+      )
+      .get() as { count: number };
+
+    if (categoriesTableExists.count === 0) {
+      console.log('Running migration 006: Add Categories tables...');
+      migration006Up(db);
+      console.log('Migration 006 completed');
     }
   } catch (error) {
     console.error('Error running migrations:', error);

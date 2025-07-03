@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import os from 'os';
+import type { UserSettings } from '../shared/types';
 
 console.log('🔧 Preload script starting...');
 
@@ -24,10 +25,37 @@ const API = {
   getTopicRecommendations: () =>
     ipcRenderer.invoke('get-topic-recommendations'),
 
+  // Categories management
+  getAllCategories: () => ipcRenderer.invoke('categories:get-all'),
+  createCategory: (name: string) =>
+    ipcRenderer.invoke('categories:create', name),
+  updateCategory: (categoryId: number, name: string) =>
+    ipcRenderer.invoke('categories:update', categoryId, name),
+  deleteCategory: (categoryId: number) =>
+    ipcRenderer.invoke('categories:delete', categoryId),
+  getInterestsForCategory: (categoryId: number) =>
+    ipcRenderer.invoke('categories:get-interests', categoryId),
+  setInterestsForCategory: (categoryId: number, interestNames: string[]) =>
+    ipcRenderer.invoke('categories:set-interests', categoryId, interestNames),
+  getCategorySchedule: (categoryId: number) =>
+    ipcRenderer.invoke('categories:get-schedule', categoryId),
+  setCategorySchedule: (
+    categoryId: number,
+    cronExpression: string,
+    isEnabled: boolean
+  ) =>
+    ipcRenderer.invoke(
+      'categories:set-schedule',
+      categoryId,
+      cronExpression,
+      isEnabled
+    ),
+
   // News curation
   getDailyNews: () => ipcRenderer.invoke('get-daily-news'),
   getLatestBriefing: () => ipcRenderer.invoke('get-latest-briefing'),
-  curateNews: () => ipcRenderer.invoke('curate-news'),
+  curateNews: (categoryId?: number | null) =>
+    ipcRenderer.invoke('curate-news', categoryId),
   recordArticleInteraction: (articleUrl: string, interactionType: string) =>
     ipcRenderer.invoke(
       'record-article-interaction',
@@ -76,9 +104,12 @@ const API = {
 
   // Settings management
   getSettings: () => ipcRenderer.invoke('settings:get'),
-  updateSettings: (settings: any) => ipcRenderer.invoke('settings:update', settings),
-  getSetting: (key: string) => ipcRenderer.invoke('settings:get-setting', key),
-  setSetting: (key: string, value: any) => ipcRenderer.invoke('settings:set-setting', key, value),
+  updateSettings: (settings: Partial<UserSettings>) =>
+    ipcRenderer.invoke('settings:update', settings),
+  getSetting: (key: keyof UserSettings) =>
+    ipcRenderer.invoke('settings:get-setting', key),
+  setSetting: (key: keyof UserSettings, value: string | boolean) =>
+    ipcRenderer.invoke('settings:set-setting', key, value),
 
   // Scheduler testing
   triggerManualBriefing: () => ipcRenderer.invoke('scheduler:trigger-manual'),

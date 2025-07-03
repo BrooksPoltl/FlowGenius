@@ -53,18 +53,20 @@ export class ScraperAgent {
   private resetFailedDomainsIfNeeded(): void {
     const oneHour = 60 * 60 * 1000;
     const now = Date.now();
-    
+
     if (!this.lastResetTime) {
       this.lastResetTime = now;
       return;
     }
-    
+
     if (now - this.lastResetTime > oneHour) {
       const failedCount = this.failedDomains.size;
       this.failedDomains.clear();
       this.lastResetTime = now;
       if (failedCount > 0) {
-        console.log(`🕷️ ScraperAgent: Reset ${failedCount} failed domains after 1 hour`);
+        console.log(
+          `🕷️ ScraperAgent: Reset ${failedCount} failed domains after 1 hour`
+        );
       }
     }
   }
@@ -76,7 +78,7 @@ export class ScraperAgent {
     console.log(
       `🕷️ ScraperAgent: Starting to scrape ${articles.length} articles`
     );
-    
+
     // Reset failed domains periodically
     this.resetFailedDomainsIfNeeded();
     const results: ScrapedContent[] = [];
@@ -86,7 +88,9 @@ export class ScraperAgent {
     for (let i = 0; i < articles.length; i++) {
       // Check if we've exceeded the maximum scraping time
       if (Date.now() - startTime > maxScrapingTime) {
-        console.log(`🕷️ ScraperAgent: Maximum scraping time exceeded, stopping after ${i} articles`);
+        console.log(
+          `🕷️ ScraperAgent: Maximum scraping time exceeded, stopping after ${i} articles`
+        );
         // Add failed entries for remaining articles
         for (let j = i; j < articles.length; j++) {
           results.push({
@@ -147,11 +151,17 @@ export class ScraperAgent {
     // Wrap entire operation in timeout to prevent hanging
     return Promise.race([
       this.scrapeArticleInternal(article),
-      new Promise<ScrapedContent>((_, reject) =>
-        setTimeout(() => reject(new Error('Overall scraping timeout')), this.overallTimeout)
-      )
+      new Promise<ScrapedContent>((_, reject) => {
+        setTimeout(
+          () => reject(new Error('Overall scraping timeout')),
+          this.overallTimeout
+        );
+      }),
     ]).catch(error => {
-      console.error(`🕷️ ScraperAgent: Timeout or error for ${article.url}:`, error);
+      console.error(
+        `🕷️ ScraperAgent: Timeout or error for ${article.url}:`,
+        error
+      );
       return {
         url: article.url,
         title: article.title,
@@ -165,7 +175,9 @@ export class ScraperAgent {
   /**
    * Internal scraping logic without timeout wrapper
    */
-  private async scrapeArticleInternal(article: Article): Promise<ScrapedContent> {
+  private async scrapeArticleInternal(
+    article: Article
+  ): Promise<ScrapedContent> {
     const domain = new URL(article.url).hostname;
     console.log(
       `🕷️ ScraperAgent: Processing ${domain} - ${article.url.substring(0, 80)}...`
@@ -174,7 +186,9 @@ export class ScraperAgent {
     // Check if domain has failed too many times
     const failureCount = this.failedDomains.get(domain) || 0;
     if (failureCount >= this.maxFailuresPerDomain) {
-      console.log(`🕷️ ScraperAgent: Skipping ${domain} - too many failures (${failureCount})`);
+      console.log(
+        `🕷️ ScraperAgent: Skipping ${domain} - too many failures (${failureCount})`
+      );
       return {
         url: article.url,
         title: article.title,
@@ -190,12 +204,14 @@ export class ScraperAgent {
       const robotsStartTime = Date.now();
       const canScrape = await Promise.race([
         this.checkRobotsPermission(article.url),
-        new Promise<boolean>((resolve) => 
+        new Promise<boolean>(resolve => {
           setTimeout(() => {
-            console.log(`🕷️ ScraperAgent: Robots.txt check timeout for ${domain}, allowing scrape`);
+            console.log(
+              `🕷️ ScraperAgent: Robots.txt check timeout for ${domain}, allowing scrape`
+            );
             resolve(true);
-          }, 8000) // 8 second timeout for robots check
-        )
+          }, 8000); // 8 second timeout for robots check
+        }),
       ]);
       const robotsCheckTime = Date.now() - robotsStartTime;
       console.log(
@@ -273,12 +289,14 @@ export class ScraperAgent {
       };
     } catch (error) {
       console.error(`🕷️ ScraperAgent: Error scraping ${domain}:`, error);
-      
+
       // Track failure for this domain
       const currentFailures = this.failedDomains.get(domain) || 0;
       this.failedDomains.set(domain, currentFailures + 1);
-      console.log(`🕷️ ScraperAgent: Domain ${domain} failure count: ${currentFailures + 1}`);
-      
+      console.log(
+        `🕷️ ScraperAgent: Domain ${domain} failure count: ${currentFailures + 1}`
+      );
+
       return {
         url: article.url,
         title: article.title,
@@ -323,7 +341,10 @@ export class ScraperAgent {
       return this.isAllowedByRobots(url, rules);
     } catch (error) {
       // If we can't fetch robots.txt, err on the side of caution but allow scraping
-      console.warn(`🕷️ ScraperAgent: Failed to check robots.txt for ${url}:`, error);
+      console.warn(
+        `🕷️ ScraperAgent: Failed to check robots.txt for ${url}:`,
+        error
+      );
       return true;
     }
   }

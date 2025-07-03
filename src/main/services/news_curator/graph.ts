@@ -128,26 +128,41 @@ export const newsCuratorGraph = workflow.compile();
 /**
  * Execute the news curation workflow
  * Now includes background summary generation after ranking
+ * @param categoryId - Optional category ID to filter interests by category
  */
-export async function executeNewsCurationWorkflow(): Promise<WorkflowResult> {
+export async function executeNewsCurationWorkflow(
+  categoryId?: number | null
+): Promise<WorkflowResult> {
   console.log('🚀 Starting news curation workflow...');
 
   try {
     // Phase 1: Core curation workflow (blocking)
-    // Get user settings and interests
-    const { getUserInterests } = await import('../settings');
-    const userInterests = getUserInterests();
-    console.log('📋 Settings loaded');
+    // Get user settings and interests (filtered by category if specified)
+    let userInterests: string[];
+    if (categoryId !== undefined) {
+      const { getInterestsByCategory } = await import('../categories');
+      userInterests = getInterestsByCategory(categoryId);
+      console.log(
+        `📋 Settings loaded for category ${categoryId || 'General'} (${userInterests.length} interests)`
+      );
+    } else {
+      const { getUserInterests } = await import('../settings');
+      userInterests = getUserInterests();
+      console.log('📋 Settings loaded (all interests)');
+    }
 
     const schedulerResult = await interestSchedulerAgent({
       userInterests,
       settingsLoaded: true,
     });
     console.log(
-      `📅 Scheduled ${schedulerResult.scheduledInterests.length} interests for search`
+      `📅 Scheduled ${schedulerResult.scheduledInterests?.length || 0} interests for search`
     );
 
-    if (schedulerResult.scheduledInterests.length === 0) {
+    if (
+      !schedulerResult.scheduledInterests ||
+      schedulerResult.scheduledInterests.length === 0
+    ) {
       console.log('⏰ No interests ready for search due to cool-down periods');
       return {
         userInterests,
@@ -165,10 +180,13 @@ export async function executeNewsCurationWorkflow(): Promise<WorkflowResult> {
       schedulingComplete: true,
     });
     console.log(
-      `🔍 Found ${searchResult.searchResults.length} articles from search`
+      `🔍 Found ${searchResult.searchResults?.length || 0} articles from search`
     );
 
-    if (searchResult.searchResults.length === 0) {
+    if (
+      !searchResult.searchResults ||
+      searchResult.searchResults.length === 0
+    ) {
       console.log('📭 No new articles found');
       return {
         userInterests,
@@ -185,13 +203,18 @@ export async function executeNewsCurationWorkflow(): Promise<WorkflowResult> {
       searchResults: searchResult.searchResults,
       searchComplete: true,
     });
-    console.log(`📝 Curated ${curationResult.curatedArticles.length} articles`);
+    console.log(
+      `📝 Curated ${curationResult.curatedArticles?.length || 0} articles`
+    );
 
-    if (curationResult.curatedArticles.length === 0) {
+    if (
+      !curationResult.curatedArticles ||
+      curationResult.curatedArticles.length === 0
+    ) {
       console.log('🚫 No articles passed curation filters');
       return {
         userInterests,
-        searchResults: searchResult.searchResults,
+        searchResults: searchResult.searchResults || [],
         curatedArticles: [],
         duplicatesFiltered: curationResult.duplicatesFiltered || 0,
         newArticlesSaved: 0,
@@ -214,15 +237,15 @@ export async function executeNewsCurationWorkflow(): Promise<WorkflowResult> {
     console.log(`📊 Ranked ${rankingResult.rankedCount} articles`);
 
     // Extract topics list for summary generation
-    const extractedTopics = userInterests; // Use user interests as topics for now
+    // const extractedTopics = userInterests; // Use user interests as topics for now
 
     console.log('✅ News curation workflow completed successfully');
 
     // Return the workflow result
     return {
       userInterests,
-      searchResults: searchResult.searchResults,
-      curatedArticles: curationResult.curatedArticles,
+      searchResults: searchResult.searchResults || [],
+      curatedArticles: curationResult.curatedArticles || [],
       duplicatesFiltered: curationResult.duplicatesFiltered || 0,
       newArticlesSaved: curationResult.newArticlesSaved || 0,
       topicsExtractedCount: topicResult.topicsExtractedCount || 0,
@@ -344,11 +367,14 @@ export async function generateSummaryInBackground(
     console.log('📱 Sending desktop notification...');
     const notificationState: NotificationState = {
       briefingId,
-      briefingTitle: `Daily Briefing - ${new Date().toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      })}`,
+      briefingTitle: `Daily Briefing - ${new Date().toLocaleDateString(
+        'en-US',
+        {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        }
+      )}`,
       articleCount: articles.length,
     };
     await NotificationAgent.sendBriefingNotification(notificationState);
@@ -365,7 +391,9 @@ export async function generateSummaryInBackground(
 
 /**
  * Save briefing to database and return the ID
+ * Currently unused but kept for future use
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function saveBriefingToDatabase(
   topics: string[],
   articles: Article[]
