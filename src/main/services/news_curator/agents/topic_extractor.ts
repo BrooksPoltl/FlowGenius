@@ -49,7 +49,7 @@ export async function topicExtractorAgent(
     });
 
     const prompt = PromptTemplate.fromTemplate(`
-You are a topic extraction expert. Given an article title and description, extract 3-5 relevant topics that best describe the content.
+You are a topic extraction expert. Given an article title and description, extract 2 relevant topics that best describe the content.
 
 Article:
 Title: {title}
