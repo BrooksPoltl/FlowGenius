@@ -80,6 +80,13 @@ export function MainApp() {
     };
   }, [currentBriefingId]);
 
+  // Reload categories when switching to news screen
+  useEffect(() => {
+    if (currentScreen === 'news') {
+      loadCategories();
+    }
+  }, [currentScreen]);
+
   /**
    * Trigger news curation workflow
    */
