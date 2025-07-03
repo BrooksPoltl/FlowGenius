@@ -76,8 +76,6 @@ Scored 0-1 for how relevant the broad category is to the article content.
 Only return the JSON array, no other text.
 `);
 
-    let totalTopicsExtracted = 0;
-
     // Prepare database statements
     const getArticleId = db.prepare('SELECT id FROM Articles WHERE url = ?');
     const insertTopic = db.prepare(`
@@ -90,19 +88,16 @@ Only return the JSON array, no other text.
       VALUES (?, ?, ?, datetime('now'))
     `);
 
-    // Process each article
-    for (const article of curatedArticles) {
+    const topicExtractionPromises = curatedArticles.map(async article => {
       try {
-        // Get article ID from database
         const articleData = getArticleId.get(article.url) as
           | { id: number }
           | undefined;
         if (!articleData) {
           console.warn(`Article not found in database: ${article.url}`);
-          continue;
+          return null;
         }
 
-        // Extract topics using AI
         const response = await llm.invoke(
           await prompt.format({
             title: article.title,
@@ -110,57 +105,55 @@ Only return the JSON array, no other text.
           })
         );
 
-        // Parse AI response
-        let extractionResult: TopicExtractionResult;
-        try {
-          const content = response.content as string;
-          const topics = JSON.parse(content);
-          extractionResult = { topics };
-        } catch (parseError) {
-          console.warn(
-            `Failed to parse AI response for article "${article.title}":`,
-            parseError
-          );
-          continue;
-        }
+        const content = response.content as string;
+        const topics = JSON.parse(content);
+        const extractionResult: TopicExtractionResult = { topics };
 
-        // Store topics in database
-        for (const topic of extractionResult.topics) {
-          try {
-            // Insert topic (ignore if exists)
-            insertTopic.run(topic.name);
-
-            // Get topic ID
-            const topicData = getTopicId.get(topic.name) as
-              | { id: number }
-              | undefined;
-            if (!topicData) {
-              console.warn(`Failed to get topic ID for: ${topic.name}`);
-              continue;
-            }
-
-            // Link article to topic with relevance score
-            insertArticleTopic.run(
-              articleData.id,
-              topicData.id,
-              topic.relevance
-            );
-
-            totalTopicsExtracted++;
-          } catch (topicError) {
-            console.error(`Error storing topic "${topic.name}":`, topicError);
-          }
-        }
-
-        console.log(
-          `🏷️ Extracted ${extractionResult.topics.length} topics for "${article.title}"`
-        );
+        return { articleData, extractionResult, article };
       } catch (error) {
         console.error(
           `Error extracting topics for article "${article.title}":`,
           error
         );
+        return null;
       }
+    });
+
+    const results = await Promise.all(topicExtractionPromises);
+    let totalTopicsExtracted = 0;
+
+    for (const result of results) {
+      if (!result) continue;
+
+      const { articleData, extractionResult, article } = result;
+
+      for (const topic of extractionResult.topics) {
+        try {
+          insertTopic.run(topic.name);
+
+          const topicData = getTopicId.get(topic.name) as
+            | { id: number }
+            | undefined;
+          if (!topicData) {
+            console.warn(`Failed to get topic ID for: ${topic.name}`);
+            continue;
+          }
+
+          insertArticleTopic.run(
+            articleData.id,
+            topicData.id,
+            topic.relevance
+          );
+
+          totalTopicsExtracted++;
+        } catch (topicError) {
+          console.error(`Error storing topic "${topic.name}":`, topicError);
+        }
+      }
+
+      console.log(
+        `🏷️ Extracted ${extractionResult.topics.length} topics for "${article.title}"`
+      );
     }
 
     console.log(

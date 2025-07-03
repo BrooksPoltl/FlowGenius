@@ -55,19 +55,11 @@ export async function searchAgent(
       `📝 Recorded search attempt time for ${scheduledInterests.length} interests`
     );
 
-    // Search for articles for each scheduled interest with rate limiting (1 TPS)
+    // Search for articles for each scheduled interest (no rate limiting needed with 20 TPS)
     for (let i = 0; i < scheduledInterests.length; i++) {
       const interest = scheduledInterests[i];
 
       try {
-        // Add delay between requests to respect 1 TPS limit (except for first request)
-        if (i > 0) {
-          console.log(`Waiting 1 second before searching for "${interest}"...`);
-          await new Promise(resolve => {
-            setTimeout(resolve, 1000);
-          });
-        }
-
         console.log(`Searching for "${interest}"...`);
         const searchResults = await searchNewsForTopic(interest, braveApiKey);
 

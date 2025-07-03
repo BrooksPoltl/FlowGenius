@@ -39,7 +39,7 @@ export class ScraperAgent {
 
   private readonly userAgent = 'FlowGenius/1.0';
 
-  private readonly defaultDelay = 1000; // 1 second between requests
+  private readonly defaultDelay = 50; // 50ms between requests (20 TPS)
 
   private readonly timeout = 10000; // 10 second timeout
 
@@ -81,56 +81,33 @@ export class ScraperAgent {
 
     // Reset failed domains periodically
     this.resetFailedDomainsIfNeeded();
-    const results: ScrapedContent[] = [];
     const maxScrapingTime = 5 * 60 * 1000; // 5 minutes total for all articles
     const startTime = Date.now();
 
-    for (let i = 0; i < articles.length; i++) {
+    const scrapingPromises = articles.map((article, i) => {
       // Check if we've exceeded the maximum scraping time
       if (Date.now() - startTime > maxScrapingTime) {
         console.log(
           `🕷️ ScraperAgent: Maximum scraping time exceeded, stopping after ${i} articles`
         );
-        // Add failed entries for remaining articles
-        for (let j = i; j < articles.length; j++) {
-          results.push({
-            url: articles[j].url,
-            title: articles[j].title,
-            content: '',
-            success: false,
-            error: 'Scraping timeout - maximum batch time exceeded',
-          });
-        }
-        break;
-      }
-
-      const article = articles[i];
-      console.log(
-        `🕷️ ScraperAgent: [${i + 1}/${articles.length}] Processing: ${article.url}`
-      );
-
-      try {
-        const articleStartTime = Date.now();
-        const content = await this.scrapeArticle(article);
-        const duration = Date.now() - articleStartTime;
-        console.log(
-          `🕷️ ScraperAgent: [${i + 1}/${articles.length}] Completed in ${duration}ms - Success: ${content.success}`
-        );
-        results.push(content);
-      } catch (error) {
-        console.error(
-          `🕷️ ScraperAgent: [${i + 1}/${articles.length}] Failed:`,
-          error
-        );
-        results.push({
+        return {
           url: article.url,
           title: article.title,
           content: '',
           success: false,
-          error: error instanceof Error ? error.message : 'Unknown error',
-        });
+          error: 'Scraping timeout - maximum batch time exceeded',
+        };
       }
-    }
+      return this.scrapeArticle(article).then(content => {
+        const duration = Date.now() - startTime;
+        console.log(
+          `🕷️ ScraperAgent: [${i + 1}/${articles.length}] Completed in ${duration}ms - Success: ${content.success}`
+        );
+        return content;
+      });
+    });
+
+    const results = await Promise.all(scrapingPromises);
 
     const totalTime = Date.now() - startTime;
     console.log(

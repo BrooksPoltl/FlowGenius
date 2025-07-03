@@ -142,28 +142,26 @@ export class SummarizerAgent {
       return this.generateFallbackSummary(originalArticles);
     }
 
-    // Generate main stories (top 3-5 most important articles)
+    // Generate main stories first as other parts depend on it
     const mainStories = await this.generateMainStories(
       successfulScrapes,
       topics
     );
 
-    // Generate quick bites (remaining articles)
     const remainingContent = successfulScrapes.slice(mainStories.length);
-    const quickBites = await this.generateQuickBites(remainingContent);
 
-    // Extract images and citations
+    // Now, generate other parts in parallel
+    const [quickBites, { title, subtitle }] = await Promise.all([
+      this.generateQuickBites(remainingContent),
+      this.generateTitleAndSubtitle(topics, mainStories),
+    ]);
+    
+    // These are synchronous and can be run while network calls are in flight
     const images = SummarizerAgent.extractImages(
       scrapedContent,
       originalArticles
     );
     const citations = this.generateCitations(originalArticles);
-
-    // Generate engaging title and subtitle
-    const { title, subtitle } = await this.generateTitleAndSubtitle(
-      topics,
-      mainStories
-    );
 
     return {
       title,
