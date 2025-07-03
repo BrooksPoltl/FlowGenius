@@ -697,16 +697,35 @@ function setupNewsIPC(): void {
     try {
       console.log('📚 Fetching briefings list...');
 
-      const briefings = db
+      const briefingsRaw = db
         .prepare(
           `
-          SELECT id, title, created_at,
-                 (SELECT COUNT(*) FROM Briefing_Articles WHERE briefing_id = Briefings.id) as article_count
+          SELECT id, title, created_at, articles_json
           FROM Briefings 
           ORDER BY created_at DESC
         `
         )
-        .all();
+        .all() as Array<{ id: number; title: string; created_at: string; articles_json: string }>;
+
+      // Parse articles_json to get actual article count
+      const briefings = briefingsRaw.map(briefing => {
+        let articleCount = 0;
+        try {
+          if (briefing.articles_json) {
+            const articles = JSON.parse(briefing.articles_json);
+            articleCount = Array.isArray(articles) ? articles.length : 0;
+          }
+        } catch (error) {
+          console.warn(`Failed to parse articles_json for briefing ${briefing.id}:`, error);
+        }
+
+        return {
+          id: briefing.id,
+          title: briefing.title,
+          created_at: briefing.created_at,
+          article_count: articleCount,
+        };
+      });
 
       return {
         success: true,
@@ -731,38 +750,35 @@ function setupNewsIPC(): void {
       console.log(
         `📰 [IPC] Fetching articles for briefing ID: ${briefingId}...`
       );
-      console.log(`📰 [IPC] Database object:`, typeof db, !!db);
 
-      // First check if the briefing exists
-      const briefingExists = db
-        .prepare('SELECT id FROM Briefings WHERE id = ?')
-        .get(briefingId);
-      console.log(`📰 [IPC] Briefing ${briefingId} exists:`, !!briefingExists);
+      // Get briefing with articles_json
+      const briefing = db
+        .prepare('SELECT articles_json FROM Briefings WHERE id = ?')
+        .get(briefingId) as { articles_json: string } | undefined;
 
-      // Check how many links exist for this briefing
-      const linkCount = db
-        .prepare(
-          'SELECT COUNT(*) as count FROM Briefing_Articles WHERE briefing_id = ?'
-        )
-        .get(briefingId) as { count: number };
-      console.log(
-        `📰 [IPC] Found ${linkCount.count} article links for briefing ${briefingId}`
-      );
+      if (!briefing) {
+        console.log(`📰 [IPC] Briefing ${briefingId} not found`);
+        return {
+          success: false,
+          error: 'Briefing not found',
+        };
+      }
 
-      const articles = db
-        .prepare(
-          `
-          SELECT a.url, a.title, a.description, a.source, a.published_at, 
-                 a.thumbnail_url, a.personalization_score
-          FROM Articles a
-          JOIN Briefing_Articles ba ON a.id = ba.article_id
-          WHERE ba.briefing_id = ?
-          ORDER BY a.personalization_score DESC, a.fetched_at DESC
-        `
-        )
-        .all(briefingId);
+      let articles = [];
+      try {
+        if (briefing.articles_json) {
+          articles = JSON.parse(briefing.articles_json);
+          if (!Array.isArray(articles)) {
+            console.warn(`📰 [IPC] articles_json is not an array for briefing ${briefingId}`);
+            articles = [];
+          }
+        }
+      } catch (error) {
+        console.error(`📰 [IPC] Failed to parse articles_json for briefing ${briefingId}:`, error);
+        articles = [];
+      }
 
-      console.log(`📰 [IPC] Query returned ${articles.length} articles`);
+      console.log(`📰 [IPC] Parsed ${articles.length} articles from articles_json`);
       console.log(
         `📰 [IPC] First article:`,
         articles[0] ? JSON.stringify(articles[0], null, 2) : 'None'
