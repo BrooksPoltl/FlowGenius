@@ -21,6 +21,21 @@ export function getAllCategories(): Category[] {
 }
 
 /**
+ * Gets a category by ID
+ * @param categoryId - Category ID
+ * @returns Category object or null if not found
+ */
+export function getCategoryById(categoryId: number): Category | null {
+  try {
+    const stmt = db.prepare('SELECT * FROM Categories WHERE id = ?');
+    return stmt.get(categoryId) as Category | null;
+  } catch (error) {
+    console.error('Error getting category by ID:', error);
+    return null;
+  }
+}
+
+/**
  * Creates a new category
  * @param name - Category name
  * @returns Category ID if successful, null if failed

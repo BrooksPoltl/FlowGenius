@@ -118,6 +118,20 @@ export function HistorySidebar({
 
   useEffect(() => {
     loadBriefings();
+
+    // Listen for new briefings being created
+    const unsubscribe = window.electronAPI.onBriefingCreated(briefingId => {
+      console.log(
+        `📢 [RENDERER] New briefing created: ${briefingId}, refreshing list`
+      );
+      loadBriefings();
+    });
+
+    return () => {
+      if (typeof unsubscribe === 'function') {
+        unsubscribe();
+      }
+    };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (

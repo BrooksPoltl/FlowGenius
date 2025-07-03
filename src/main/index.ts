@@ -295,11 +295,20 @@ function setupNewsIPC(): void {
 
       // Create briefing when there are curated articles, not just new ones
       if (result.curatedArticles && result.curatedArticles.length > 0) {
-        const briefingTitle = new Date().toLocaleDateString('en-US', {
+        let briefingTitle = new Date().toLocaleDateString('en-US', {
           year: 'numeric',
           month: 'long',
           day: 'numeric',
         });
+
+        // Add category name if categoryId was provided
+        if (categoryId) {
+          const { getCategoryById } = await import('./services/categories');
+          const category = await getCategoryById(categoryId);
+          if (category) {
+            briefingTitle = `${category.name} - ${briefingTitle}`;
+          }
+        }
 
         // Get user interests for briefing
         const { getUserInterests } = await import('./services/settings');
@@ -334,6 +343,9 @@ function setupNewsIPC(): void {
         console.log(
           `🗞️  Created briefing "${briefingTitle}" with ${result.curatedArticles.length} articles (${result.newArticlesSaved} new, ${result.duplicatesFiltered} duplicates filtered).`
         );
+
+        // Notify renderer that a new briefing was created
+        notifyRendererBriefingCreated(briefingId);
 
         // Start background summary generation for the briefing
         const { generateSummaryInBackground } = await import(
@@ -383,11 +395,14 @@ function setupNewsIPC(): void {
 
       // Create briefing when there are curated articles, not just new ones
       if (result.curatedArticles && result.curatedArticles.length > 0) {
-        const briefingTitle = new Date().toLocaleDateString('en-US', {
+        let briefingTitle = new Date().toLocaleDateString('en-US', {
           year: 'numeric',
           month: 'long',
           day: 'numeric',
         });
+
+        // Force refresh doesn't use categories, so use "General" prefix
+        briefingTitle = `General - ${briefingTitle}`;
 
         // Get user interests for briefing
         const { getUserInterests: getUserInterests2 } = await import(
@@ -424,6 +439,9 @@ function setupNewsIPC(): void {
         console.log(
           `🗞️  Created briefing "${briefingTitle}" with ${result.curatedArticles.length} articles (${result.newArticlesSaved} new, ${result.duplicatesFiltered} duplicates filtered).`
         );
+
+        // Notify renderer that a new briefing was created
+        notifyRendererBriefingCreated(briefingId);
 
         // Start background summary generation for the briefing
         const { generateSummaryInBackground } = await import(
@@ -565,11 +583,14 @@ function setupNewsIPC(): void {
 
       // Archive the briefing - Create briefing when there are curated articles, not just new ones
       if (result.curatedArticles && result.curatedArticles.length > 0) {
-        const briefingTitle = new Date().toLocaleDateString('en-US', {
+        let briefingTitle = new Date().toLocaleDateString('en-US', {
           year: 'numeric',
           month: 'long',
           day: 'numeric',
         });
+
+        // Daily news doesn't use categories, so use "Daily" prefix
+        briefingTitle = `Daily - ${briefingTitle}`;
 
         // Get user interests for briefing
         const { getUserInterests: getUserInterests3 } = await import(
@@ -606,6 +627,9 @@ function setupNewsIPC(): void {
         console.log(
           `🗞️  Archived briefing "${briefingTitle}" with ${result.curatedArticles.length} articles (${result.newArticlesSaved} new, ${result.duplicatesFiltered} duplicates filtered).`
         );
+
+        // Notify renderer that a new briefing was created
+        notifyRendererBriefingCreated(briefingId);
 
         // Start background summary generation for the briefing
         const { generateSummaryInBackground } = await import(
@@ -1211,4 +1235,15 @@ export function notifyRendererSummaryReady(briefingId: number): void {
   if (mainWindow) {
     mainWindow.webContents.send('summary-ready', briefingId);
   }
+}
+
+// Function to notify renderer when a new briefing is created
+export function notifyRendererBriefingCreated(briefingId: number): void {
+  const mainWindow = BrowserWindow.getAllWindows().find(
+    (win: BrowserWindow) => !win.isDestroyed()
+  );
+  if (mainWindow) {
+    mainWindow.webContents.send('briefing-created', briefingId);
+  }
+  console.log(`📢 Notified renderer that briefing ${briefingId} was created`);
 }

@@ -96,6 +96,11 @@ const API = {
     return () => ipcRenderer.removeAllListeners('summary-ready');
   },
 
+  onBriefingCreated: (callback: (briefingId: number) => void) => {
+    ipcRenderer.on('briefing-created', (_, briefingId) => callback(briefingId));
+    return () => ipcRenderer.removeAllListeners('briefing-created');
+  },
+
   getSummaryStats: () => ipcRenderer.invoke('get-summary-stats'),
 
   // Refresh operations

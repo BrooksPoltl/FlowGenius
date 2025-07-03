@@ -248,14 +248,13 @@ export class SchedulerService {
 
       const curatedArticles = result.curatedArticles || [];
 
-      const briefingTitle = `${type.charAt(0).toUpperCase() + type.slice(1)} Briefing - ${new Date().toLocaleDateString(
-        'en-US',
-        {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-        }
-      )}`;
+      const dateStr = new Date().toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+
+      const briefingTitle = `${type.charAt(0).toUpperCase() + type.slice(1)} - ${dateStr}`;
 
       const topics = getUserInterests();
 
@@ -287,6 +286,10 @@ export class SchedulerService {
       console.log(
         `⏰ Created briefing "${briefingTitle}" with ${curatedArticles.length} articles (${result.newArticlesSaved || 0} new, ${result.duplicatesFiltered || 0} duplicates filtered).`
       );
+
+      // Notify renderer that a new briefing was created
+      const { notifyRendererBriefingCreated } = await import('../index');
+      notifyRendererBriefingCreated(briefingId);
 
       // Start background summary generation for the briefing
       generateSummaryInBackground(

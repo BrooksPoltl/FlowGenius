@@ -356,6 +356,25 @@ export function ArticlesView({
     checkCooldownStatus,
   ]);
 
+  // Listen for new briefings being created
+  useEffect(() => {
+    const unsubscribe = window.electronAPI.onBriefingCreated(briefingId => {
+      console.log(
+        `📢 [RENDERER] New briefing created: ${briefingId}, loading latest articles`
+      );
+      // Only auto-load if we're not viewing a specific selected briefing
+      if (!selectedBriefingId) {
+        loadArticles();
+      }
+    });
+
+    return () => {
+      if (typeof unsubscribe === 'function') {
+        unsubscribe();
+      }
+    };
+  }, [selectedBriefingId, loadArticles]);
+
   /**
    * Load categories from backend
    */
