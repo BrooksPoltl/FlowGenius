@@ -55,7 +55,6 @@ export function ArticlesView({
    */
   const loadArticles = useCallback(async () => {
     setLoading(true);
-    setError(null);
     try {
       console.log('🔍 [RENDERER] Starting loadArticles...');
       console.log(
@@ -178,9 +177,6 @@ export function ArticlesView({
         '❌ [RENDERER] Error stack:',
         error instanceof Error ? error.stack : 'No stack'
       );
-      setError(
-        `Failed to load articles: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
     } finally {
       console.log(
         '🔍 [RENDERER] loadArticles finished, setting loading to false'
@@ -188,20 +184,6 @@ export function ArticlesView({
       setLoading(false);
     }
   }, [onBriefingChange]);
-
-  /**
-   * Check cooldown status for user interests
-   */
-  const checkCooldownStatus = useCallback(async () => {
-    try {
-      const result = await window.electronAPI.getCooldownStatus();
-      if (result.success && result.data) {
-        setCooldownStatus(result.data);
-      }
-    } catch (error) {
-      console.error('Error checking cooldown status:', error);
-    }
-  }, []);
 
   // Handle selected articles from sidebar or load latest articles
 
@@ -229,13 +211,11 @@ export function ArticlesView({
       console.log('🔍 [RENDERER] Loading latest articles');
       loadArticles();
     }
-    checkCooldownStatus();
   }, [
     selectedArticles,
     selectedBriefingId,
     onBriefingChange,
     loadArticles,
-    checkCooldownStatus,
   ]);
 
   // Listen for new briefings being created
