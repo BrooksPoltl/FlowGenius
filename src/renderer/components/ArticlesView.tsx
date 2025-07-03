@@ -322,11 +322,10 @@ export function ArticlesView({
                 </svg>
               </div>
               <h3 className="text-lg font-medium text-gray-900 mb-2">
-                No articles yet
+                No briefings yet
               </h3>
               <p className="text-gray-500 mb-6">
-                Get started by curating your first batch of personalized news
-                articles.
+                Get started by curating your first news briefing.
               </p>
             </>
           )}
