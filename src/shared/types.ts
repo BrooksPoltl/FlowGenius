@@ -23,7 +23,7 @@ export interface Article {
   title: string;
   description: string;
   url: string;
-  imageUrl?: string;
+  thumbnail_url?: string;
   publishedAt: string;
   source: string;
   score?: number;
@@ -192,4 +192,5 @@ export interface Citation {
   url: string;
   title: string;
   source: string;
+  thumbnail_url?: string;
 }
