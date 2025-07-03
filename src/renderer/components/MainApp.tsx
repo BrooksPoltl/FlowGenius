@@ -10,7 +10,7 @@ import { TrendingUp, BarChart3, Menu, X, Settings } from 'lucide-react';
 import { DashboardScreen } from '../screens/dashboard';
 import { SettingsScreen } from '../screens/settings';
 import { HistorySidebar } from './HistorySidebar';
-import { ArticlesView } from './ArticlesView';
+import { SummaryView } from './SummaryView';
 import { InterestsModal } from './InterestsModal';
 import { Article } from './ui/ArticleCard';
 import { Category } from '../../shared/types';
@@ -20,24 +20,39 @@ type AppScreen = 'news' | 'dashboard' | 'settings';
 export function MainApp() {
   const [currentScreen, setCurrentScreen] = useState<AppScreen>('news');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isInterestsModalOpen, setIsInterestsModalOpen] = useState(false);
   const [currentBriefingId, setCurrentBriefingId] = useState<number | null>(
     null
   );
-  const [isInterestsModalOpen, setIsInterestsModalOpen] = useState(false);
+  const [summaryReady, setSummaryReady] = useState(false);
 
-  // Shared state that persists across screen navigation
+  // Curation and category state
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedArticles, setSelectedArticles] = useState<Article[] | null>(
-    null
-  );
-  const [selectedBriefingId, setSelectedBriefingId] = useState<number | null>(
-    null
-  );
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(
     null
   );
   const [error, setError] = useState<string | null>(null);
+
+  const loadLatestBriefing = useCallback(async () => {
+    console.log('🔄 [MAIN APP] Loading latest briefing...');
+    setIsLoading(true);
+    try {
+      const briefingResponse = await window.electronAPI.getLatestBriefing();
+      if (
+        briefingResponse &&
+        briefingResponse.success &&
+        briefingResponse.data
+      ) {
+        setCurrentBriefingId(briefingResponse.data.id);
+      }
+    } catch (err) {
+      console.error('❌ [MAIN APP] Error loading latest briefing:', err);
+      setError('Failed to load the latest briefing.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   /**
    * Load categories from backend
@@ -54,47 +69,35 @@ export function MainApp() {
   };
 
   useEffect(() => {
-    // Load categories on component mount
     loadCategories();
+    loadLatestBriefing();
 
-    // Listen for summary ready notifications
+    const unsubscribeBriefing = window.electronAPI.onBriefingCreated(
+      briefingId => {
+        console.log(
+          `📢 [MAIN APP] New briefing created: ${briefingId}, setting as current.`
+        );
+        setCurrentBriefingId(briefingId);
+      }
+    );
+
     const unsubscribeSummary = window.electronAPI.onSummaryReady(
-      (briefingId: number) => {
+      briefingId => {
         if (briefingId === currentBriefingId) {
-          // Summary is ready for the current briefing
+          setSummaryReady(true);
         }
       }
     );
 
-    // Listen for new briefings being created
-    const unsubscribeBriefing = window.electronAPI.onBriefingCreated(
-      (briefingId: number) => {
-        console.log(
-          `📢 [MAIN APP] New briefing created: ${briefingId}, clearing selection and switching to latest`
-        );
-        // Clear any selected historical briefing
-        setSelectedArticles(null);
-        setSelectedBriefingId(null);
-        // Switch to articles tab to show the new content
-        setCurrentScreen('news');
-      }
-    );
-
     return () => {
-      if (typeof unsubscribeSummary === 'function') {
-        unsubscribeSummary();
-      }
       if (typeof unsubscribeBriefing === 'function') {
         unsubscribeBriefing();
       }
+      if (typeof unsubscribeSummary === 'function') {
+        unsubscribeSummary();
+      }
     };
-  }, [currentBriefingId]);
-
-  useEffect(() => {
-    if (selectedBriefingId) {
-      setCurrentBriefingId(selectedBriefingId);
-    }
-  }, [selectedBriefingId]);
+  }, [loadLatestBriefing, currentBriefingId]);
 
   /**
    * Trigger news curation workflow
@@ -103,33 +106,11 @@ export function MainApp() {
     setIsLoading(true);
     setError(null);
     try {
-      console.log(
-        `🔄 [RENDERER] Starting news curation for category ${
-          selectedCategoryId || 'General'
-        }...`
-      );
-
-      const result = await window.electronAPI.curateNews(selectedCategoryId);
-      console.log('🔄 [RENDERER] Curation result:', result);
-
-      if (result.success) {
-        // Reload articles after curation is now handled by onBriefingCreated event
-        // Check if any articles were found
-        if (
-          result.data &&
-          (!result.data.curatedArticles ||
-            result.data.curatedArticles.length === 0)
-        ) {
-          setError(
-            'No articles found. Your interests might be on cooldown or no relevant articles are available.'
-          );
-        }
-      } else {
-        setError(result.error || 'Failed to curate news');
-      }
+      await window.electronAPI.curateNews(selectedCategoryId);
+      // The onBriefingCreated listener will handle setting the new briefing ID
     } catch (err) {
       console.error('🔄 [RENDERER] Error curating news:', err);
-      setError('Failed to curate news');
+      setError('Failed to curate news. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -142,26 +123,10 @@ export function MainApp() {
     setIsLoading(true);
     setError(null);
     try {
-      console.log('🔄 [RENDERER] Starting force refresh...');
-      const result = await window.electronAPI.forceRefresh();
-      console.log('🔄 [RENDERER] Force refresh result:', result);
-
-      if (result.success) {
-        if (
-          result.data &&
-          (!result.data.curatedArticles ||
-            result.data.curatedArticles.length === 0)
-        ) {
-          setError(
-            'No articles found even with force refresh. This may indicate API issues or no relevant content is available.'
-          );
-        }
-      } else {
-        setError(result.error || 'Failed to force refresh');
-      }
+      await window.electronAPI.forceRefresh();
     } catch (err) {
       console.error('🔄 [RENDERER] Error with force refresh:', err);
-      setError('Failed to force refresh');
+      setError('Failed to force refresh. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -171,19 +136,12 @@ export function MainApp() {
    * Handles when a briefing is selected from the history sidebar
    */
   const handleBriefingSelect = (
+    // Articles are no longer needed here, sidebar only provides the ID
     briefingArticles: Article[] | null,
     briefingId: number | null
   ) => {
-    console.log(
-      'Selected briefing with',
-      briefingArticles?.length || 0,
-      'articles'
-    );
-    setSelectedArticles(briefingArticles);
-    setSelectedBriefingId(briefingId);
     setCurrentBriefingId(briefingId);
-    // Switch to articles tab when a briefing is selected
-    setCurrentScreen('news');
+    setSummaryReady(false); // Reset summary status on new selection
   };
 
   return (
@@ -259,21 +217,13 @@ export function MainApp() {
         )}
 
         {/* Content */}
-        <main className="flex-1 overflow-auto">
-          {currentScreen === 'news' && (
+        <main className="flex-1 flex flex-col">
+          {currentScreen === 'news' ? (
             <div className="flex-1 flex flex-col overflow-hidden">
               {/* Top bar */}
               <div className="bg-white border-b border-gray-200 px-6 py-3">
                 <div className="flex items-center justify-between">
-                  {/* Left side: Tabs for Articles and Summary */}
-                  <div className="flex items-center space-x-2">
-                    <div className="flex items-center space-x-4">
-                      <h1 className="text-xl font-semibold text-gray-800">
-                        Your News Briefing
-                      </h1>
-                    </div>
-                  </div>
-
+                  <div className="flex items-center space-x-2" />
                   {/* Right side: Category Dropdown and Action Buttons */}
                   <div className="flex items-center space-x-4">
                     {/* Category dropdown */}
@@ -287,18 +237,17 @@ export function MainApp() {
                         </label>
                         <select
                           id="categorySelect"
-                          value={selectedCategoryId === null ? 'general' : selectedCategoryId}
+                          value={
+                            selectedCategoryId === null
+                              ? 'general'
+                              : selectedCategoryId
+                          }
                           onChange={e => {
-                            const value = e.target.value;
+                            const { value } = e.target;
                             if (value === 'general') {
                               setSelectedCategoryId(null);
                             } else {
                               setSelectedCategoryId(Number(value));
-                            }
-                            // Clear historical articles when category changes
-                            if (selectedArticles) {
-                              setSelectedArticles(null);
-                              setSelectedBriefingId(null);
                             }
                           }}
                           className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500 bg-white"
@@ -351,28 +300,19 @@ export function MainApp() {
 
               {/* Main content */}
               <div className="flex-1 overflow-y-auto bg-gray-50">
-                <div className="h-full">
-                  <div className="h-full flex flex-col">
-                    <div className="flex-1 overflow-hidden">
-                      <ArticlesView
-                        onBriefingChange={setCurrentBriefingId}
-                        selectedArticles={selectedArticles}
-                        selectedBriefingId={selectedBriefingId}
-                        loading={isLoading}
-                        error={error}
-                      />
-                    </div>
-                  </div>
-                </div>
+                <SummaryView
+                  briefingId={currentBriefingId}
+                  summaryReady={summaryReady}
+                />
               </div>
             </div>
+          ) : currentScreen === 'dashboard' ? (
+            <DashboardScreen />
+          ) : (
+            <SettingsScreen />
           )}
-          {currentScreen === 'dashboard' && <DashboardScreen />}
-          {currentScreen === 'settings' && <SettingsScreen />}
         </main>
       </div>
-
-      {/* Interests Management Modal */}
       <InterestsModal
         isOpen={isInterestsModalOpen}
         onClose={() => setIsInterestsModalOpen(false)}
