@@ -21,6 +21,7 @@ import {
   ExecutiveSummary,
 } from '../../../shared/types';
 import db from '../../db';
+import { notifyRendererBriefingCreated } from '../notification-utils';
 
 /**
  * Workflow execution result containing metrics and data
@@ -246,6 +247,16 @@ export async function executeNewsCurationWorkflow(
         console.log('📱 Desktop notification sent');
       } catch (notificationError) {
         console.error('📱 Failed to send notification:', notificationError);
+      }
+    }
+
+    // Notify renderer to update UI when briefing is created
+    if (result.briefingId) {
+      try {
+        notifyRendererBriefingCreated(result.briefingId);
+        console.log('🔔 Renderer notified of new briefing');
+      } catch (rendererError) {
+        console.error('🔔 Failed to notify renderer:', rendererError);
       }
     }
 

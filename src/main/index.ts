@@ -1,9 +1,10 @@
-import { app, ipcMain, BrowserWindow } from 'electron';
+import { app, ipcMain, session } from 'electron';
 import { config } from 'dotenv';
 
 import { makeAppWithSingleInstanceLock } from 'lib/electron-app/factories/app/instance';
 import { makeAppSetup } from 'lib/electron-app/factories/app/setup';
 import { MainWindow } from './windows/main';
+import { notifyRendererBriefingCreated } from './services/notification-utils';
 import {
   initializeSettings,
   getUserInterests,
@@ -60,6 +61,7 @@ makeAppWithSingleInstanceLock(async () => {
   setupCategoriesIPC();
   setupNewsIPC();
   setupSettingsIPC();
+  setupAppControlsIPC();
 
   console.log('🖼️ Creating main window...');
   await makeAppSetup(MainWindow);
@@ -274,9 +276,7 @@ function setupNewsIPC(): void {
       return {
         success: false,
         error:
-          error instanceof Error
-            ? error.message
-            : 'Failed to get latest briefing',
+          error instanceof Error ? error.message : 'Failed to get latest briefing',
       };
     }
   });
@@ -1058,23 +1058,31 @@ function setupSettingsIPC(): void {
   });
 }
 
-// Function to notify renderer when summary is ready (exported for use in graph)
-export function notifyRendererSummaryReady(briefingId: number): void {
-  const mainWindow = BrowserWindow.getAllWindows().find(
-    (win: BrowserWindow) => !win.isDestroyed()
-  );
-  if (mainWindow) {
-    mainWindow.webContents.send('summary-ready', briefingId);
-  }
+/**
+ * Sets up IPC handlers for app-level controls like resetting data.
+ */
+function setupAppControlsIPC(): void {
+  ipcMain.handle('app:reset', async () => {
+    try {
+      // This will clear all storage data, including LocalStorage, IndexedDB, WebSQL,
+      // Cookies, and the database file.
+      await session.defaultSession.clearStorageData();
+      console.log('✅ Application data cleared. Relaunching...');
+
+      // Relaunch the app to apply changes
+      app.relaunch();
+      app.exit();
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error resetting application data:', error);
+      return { success: false, error: 'Failed to reset application data' };
+    }
+  });
 }
 
-// Function to notify renderer when a new briefing is created
-export function notifyRendererBriefingCreated(briefingId: number): void {
-  const mainWindow = BrowserWindow.getAllWindows().find(
-    (win: BrowserWindow) => !win.isDestroyed()
-  );
-  if (mainWindow) {
-    mainWindow.webContents.send('briefing-created', briefingId);
-  }
-  console.log(`📢 Notified renderer that briefing ${briefingId} was created`);
-}
+// Re-export notification functions for external use
+export {
+  notifyRendererBriefingCreated,
+  notifyRendererSummaryReady,
+} from './services/notification-utils';
