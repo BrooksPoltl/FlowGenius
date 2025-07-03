@@ -22,14 +22,12 @@ interface ArticlesViewProps {
   onBriefingChange: (briefingId: number | null) => void;
   selectedArticles?: CardArticle[] | null;
   selectedBriefingId?: number | null;
-  onClearSelection?: () => void;
 }
 
 export function ArticlesView({
   onBriefingChange,
   selectedArticles,
   selectedBriefingId,
-  onClearSelection,
 }: ArticlesViewProps) {
   console.log('🔍 [RENDERER] ArticlesView component rendering...');
 
@@ -40,7 +38,7 @@ export function ArticlesView({
   const [currentBriefingId, setCurrentBriefingId] = useState<number | null>(
     null
   );
-  const [generatingSummary, setGeneratingSummary] = useState(false);
+
   const [cooldownStatus, setCooldownStatus] = useState<{
     scheduled: string[];
     cooledDown: string[];
@@ -288,37 +286,7 @@ export function ArticlesView({
     }
   };
 
-  /**
-   * Test summary generation for debugging
-   */
-  const handleTestSummary = async () => {
-    if (!currentBriefingId) {
-      console.error('No current briefing ID available');
-      return;
-    }
 
-    setGeneratingSummary(true);
-    try {
-      console.log(
-        `🧪 [RENDERER] Triggering summary generation for briefing ${currentBriefingId}`
-      );
-      const result =
-        await window.electronAPI.generateSummary(currentBriefingId);
-      console.log('🧪 [RENDERER] Summary generation result:', result);
-      if (result.success) {
-        console.log('🧪 [RENDERER] Summary generation started successfully');
-      } else {
-        console.error('🧪 [RENDERER] Summary generation failed:', result.error);
-      }
-    } catch (error) {
-      console.error(
-        '🧪 [RENDERER] Error triggering summary generation:',
-        error
-      );
-    } finally {
-      setGeneratingSummary(false);
-    }
-  };
 
   // Handle selected articles from sidebar or load latest articles
   // Load categories on component mount
@@ -377,9 +345,6 @@ export function ArticlesView({
       
       // Always auto-load the latest briefing when a new one is created
       // This will clear any selected historical briefing and show the new content
-      if (onClearSelection) {
-        onClearSelection(); // Clear the historical selection
-      }
       loadArticles(); // Load the latest briefing
     });
 
@@ -388,7 +353,7 @@ export function ArticlesView({
         unsubscribe();
       }
     };
-  }, [loadArticles, onClearSelection]);
+  }, [loadArticles]);
 
   /**
    * Load categories from backend
@@ -637,38 +602,14 @@ export function ArticlesView({
               </div>
             )}
 
-            {/* Back to Latest button - only show when viewing historical articles */}
-            {selectedArticles && onClearSelection && (
-              <button
-                onClick={onClearSelection}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                Back to Latest
-              </button>
-            )}
 
-            {/* Test Summary button - always visible */}
-            <button
-              onClick={handleTestSummary}
-              disabled={generatingSummary || !currentBriefingId}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
-            >
-              {generatingSummary ? (
-                <>
-                  <div className="animate-spin -ml-1 mr-3 h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
-                  Generating...
-                </>
-              ) : (
-                'Test Summary'
-              )}
-            </button>
 
             {/* Refresh button - always visible, disabled when viewing historical */}
             <button
               onClick={handleCurateNews}
               disabled={loading || !!selectedArticles}
               className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-              title={selectedArticles ? "Switch to 'Back to Latest' to refresh" : "Refresh articles"}
+              title={selectedArticles ? "Viewing historical articles - refresh disabled" : "Refresh articles"}
             >
               {loading ? (
                 <>
@@ -685,7 +626,7 @@ export function ArticlesView({
               onClick={handleForceRefresh}
               disabled={loading || !!selectedArticles}
               className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-              title={selectedArticles ? "Switch to 'Back to Latest' to force refresh" : "Force refresh bypasses cooldown periods and searches all interests"}
+              title={selectedArticles ? "Viewing historical articles - force refresh disabled" : "Force refresh bypasses cooldown periods and searches all interests"}
             >
               {loading ? (
                 <div className="animate-spin -ml-1 mr-2 h-4 w-4 border-2 border-gray-600 border-t-transparent rounded-full" />
