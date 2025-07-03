@@ -8,13 +8,18 @@ import { settingsAgent } from './agents/settings';
 import { interestSchedulerAgent } from './agents/scheduler';
 import { searchAgent } from './agents/search';
 import { curationAgent } from './agents/curation';
+import { articleClusteringAgent } from './agents/clustering';
 import { topicExtractorAgent } from './agents/topic_extractor';
 import { rankingAgent } from './agents/ranking';
-import { ScraperAgent } from './agents/scraper';
-import { SummarizerAgent } from './agents/summarizer';
-import { DatabaseWriterAgent } from './agents/database_writer';
+import { scraperAgent } from './agents/scraper_agent';
+import { summarizerAgent } from './agents/summarizer_agent';
+import { databaseWriterAgent } from './agents/database_writer';
 import { NotificationAgent, NotificationState } from './agents/notification';
-import { Article } from '../../../shared/types';
+import {
+  Article,
+  ScrapedContent,
+  ExecutiveSummary,
+} from '../../../shared/types';
 import db from '../../db';
 
 /**
@@ -24,22 +29,17 @@ export interface WorkflowResult {
   userInterests: string[];
   searchResults: Article[];
   curatedArticles: Article[];
+  clusteredArticles: Article[];
   duplicatesFiltered: number;
   newArticlesSaved: number;
+  articleClustersFound: number;
   topicsExtractedCount: number;
   rankedCount: number;
+  scrapingSuccessCount: number;
+  briefingId: number | null;
 }
 
-/**
- * Scraper result for individual articles
- */
-export interface ScrapedContent {
-  url: string;
-  title: string;
-  content: string;
-  success: boolean;
-  error?: string;
-}
+// ScrapedContent interface moved to shared types
 
 // Define the state schema using Annotation.Root()
 const NewsCuratorState = Annotation.Root({
@@ -84,6 +84,17 @@ const NewsCuratorState = Annotation.Root({
     reducer: (current, update) => update ?? current,
   }),
 
+  // Clustering phase
+  clusteredArticles: Annotation<Article[]>({
+    reducer: (current, update) => update ?? current,
+  }),
+  clusteringComplete: Annotation<boolean>({
+    reducer: (current, update) => update ?? current,
+  }),
+  articleClustersFound: Annotation<number>({
+    reducer: (current, update) => update ?? current,
+  }),
+
   // Topic extraction phase
   topicsExtracted: Annotation<boolean>({
     reducer: (current, update) => update ?? current,
@@ -100,6 +111,28 @@ const NewsCuratorState = Annotation.Root({
     reducer: (current, update) => update ?? current,
   }),
 
+  // Scraping phase
+  scrapedContent: Annotation<ScrapedContent[]>({
+    reducer: (current, update) => update ?? current,
+  }),
+  scrapingComplete: Annotation<boolean>({
+    reducer: (current, update) => update ?? current,
+  }),
+  scrapingSuccessCount: Annotation<number>({
+    reducer: (current, update) => update ?? current,
+  }),
+
+  // Summarization phase
+  executiveSummary: Annotation<ExecutiveSummary | null>({
+    reducer: (current, update) => update ?? current,
+  }),
+  summarizationComplete: Annotation<boolean>({
+    reducer: (current, update) => update ?? current,
+  }),
+  briefingId: Annotation<number | null>({
+    reducer: (current, update) => update ?? current,
+  }),
+
   // Error handling
   error: Annotation<string>({
     reducer: (current, update) => update ?? current,
@@ -112,282 +145,119 @@ const workflow = new StateGraph(NewsCuratorState)
   .addNode('scheduler', interestSchedulerAgent)
   .addNode('search', searchAgent)
   .addNode('curate', curationAgent)
+  .addNode('clustering', articleClusteringAgent)
   .addNode('extract_topics', topicExtractorAgent)
   .addNode('rank', rankingAgent)
+  .addNode('scraper', scraperAgent)
+  .addNode('summarizer', summarizerAgent)
+  .addNode('database_writer', databaseWriterAgent)
   .addEdge(START, 'settings')
   .addEdge('settings', 'scheduler')
   .addEdge('scheduler', 'search')
   .addEdge('search', 'curate')
-  .addEdge('curate', 'extract_topics')
+  .addEdge('curate', 'clustering')
+  .addEdge('clustering', 'extract_topics')
   .addEdge('extract_topics', 'rank')
-  .addEdge('rank', END);
+  .addEdge('rank', 'scraper')
+  .addEdge('scraper', 'summarizer')
+  .addEdge('summarizer', 'database_writer')
+  .addEdge('database_writer', END);
 
 // Compile the graph
 export const newsCuratorGraph = workflow.compile();
 
 /**
- * Execute the news curation workflow
- * Now includes background summary generation after ranking
+ * Execute the unified news curation workflow
+ * Includes clustering, ranking, scraping, summarization, and database writing
  * @param categoryId - Optional category ID to filter interests by category
  */
 export async function executeNewsCurationWorkflow(
   categoryId?: number | null
 ): Promise<WorkflowResult> {
-  console.log('🚀 Starting news curation workflow...');
+  console.log('🚀 Starting unified news curation workflow...');
 
   try {
-    // Phase 1: Core curation workflow (blocking)
-    // Get user settings and interests (filtered by category if specified)
-    let userInterests: string[];
-    if (categoryId !== undefined) {
-      const { getInterestsByCategory } = await import('../categories');
-      userInterests = getInterestsByCategory(categoryId);
-      console.log(
-        `📋 Settings loaded for category ${categoryId || 'General'} (${userInterests.length} interests)`
-      );
-    } else {
-      const { getUserInterests } = await import('../settings');
-      userInterests = getUserInterests();
-      console.log('📋 Settings loaded (all interests)');
-    }
+    // Initialize the workflow state
+    const initialState = {
+      userInterests: [],
+      settingsLoaded: false,
+      scheduledInterests: [],
+      cooledDownInterests: [],
+      schedulingComplete: false,
+      searchResults: [],
+      searchComplete: false,
+      curatedArticles: [],
+      curationComplete: false,
+      duplicatesFiltered: 0,
+      newArticlesSaved: 0,
+      clusteredArticles: [],
+      clusteringComplete: false,
+      articleClustersFound: 0,
+      topicsExtracted: false,
+      topicsExtractedCount: 0,
+      articlesRanked: false,
+      rankedCount: 0,
+      scrapedContent: [],
+      scrapingComplete: false,
+      scrapingSuccessCount: 0,
+      executiveSummary: null,
+      summarizationComplete: false,
+      briefingId: null,
+      categoryId,
+    };
 
-    const schedulerResult = await interestSchedulerAgent({
-      userInterests,
-      settingsLoaded: true,
-    });
+    // Execute the workflow using the compiled graph
+    const result = await newsCuratorGraph.invoke(initialState);
+
+    console.log('✅ Unified news curation workflow completed successfully');
+    console.log(`📊 Workflow results:`);
+    console.log(`  - User interests: ${result.userInterests?.length || 0}`);
+    console.log(`  - Search results: ${result.searchResults?.length || 0}`);
+    console.log(`  - Curated articles: ${result.curatedArticles?.length || 0}`);
     console.log(
-      `📅 Scheduled ${schedulerResult.scheduledInterests?.length || 0} interests for search`
+      `  - Clustered articles: ${result.clusteredArticles?.length || 0}`
     );
+    console.log(`  - Article clusters: ${result.articleClustersFound || 0}`);
+    console.log(`  - Topics extracted: ${result.topicsExtractedCount || 0}`);
+    console.log(`  - Articles ranked: ${result.rankedCount || 0}`);
+    console.log(`  - Successful scrapes: ${result.scrapingSuccessCount || 0}`);
+    console.log(`  - Briefing ID: ${result.briefingId || 'None'}`);
 
-    if (
-      !schedulerResult.scheduledInterests ||
-      schedulerResult.scheduledInterests.length === 0
-    ) {
-      console.log('⏰ No interests ready for search due to cool-down periods');
-      return {
-        userInterests,
-        searchResults: [],
-        curatedArticles: [],
-        duplicatesFiltered: 0,
-        newArticlesSaved: 0,
-        topicsExtractedCount: 0,
-        rankedCount: 0,
-      };
+    // Send notification if briefing was created
+    if (result.briefingId && result.executiveSummary) {
+      try {
+        const notificationState: NotificationState = {
+          briefingId: result.briefingId,
+          briefingTitle: result.executiveSummary.title,
+          articleCount: result.clusteredArticles?.length || 0,
+        };
+        await NotificationAgent.sendBriefingNotification(notificationState);
+        console.log('📱 Desktop notification sent');
+      } catch (notificationError) {
+        console.error('📱 Failed to send notification:', notificationError);
+      }
     }
 
-    const searchResult = await searchAgent({
-      scheduledInterests: schedulerResult.scheduledInterests,
-      schedulingComplete: true,
-    });
-    console.log(
-      `🔍 Found ${searchResult.searchResults?.length || 0} articles from search`
-    );
-
-    if (
-      !searchResult.searchResults ||
-      searchResult.searchResults.length === 0
-    ) {
-      console.log('📭 No new articles found');
-      return {
-        userInterests,
-        searchResults: [],
-        curatedArticles: [],
-        duplicatesFiltered: 0,
-        newArticlesSaved: 0,
-        topicsExtractedCount: 0,
-        rankedCount: 0,
-      };
-    }
-
-    const curationResult = await curationAgent({
-      searchResults: searchResult.searchResults,
-      searchComplete: true,
-    });
-    console.log(
-      `📝 Curated ${curationResult.curatedArticles?.length || 0} articles`
-    );
-
-    if (
-      !curationResult.curatedArticles ||
-      curationResult.curatedArticles.length === 0
-    ) {
-      console.log('🚫 No articles passed curation filters');
-      return {
-        userInterests,
-        searchResults: searchResult.searchResults || [],
-        curatedArticles: [],
-        duplicatesFiltered: curationResult.duplicatesFiltered || 0,
-        newArticlesSaved: 0,
-        topicsExtractedCount: 0,
-        rankedCount: 0,
-      };
-    }
-
-    const topicResult = await topicExtractorAgent({
-      curatedArticles: curationResult.curatedArticles,
-      curationComplete: true,
-    });
-    console.log(`🏷️ Extracted ${topicResult.topicsExtractedCount} topics`);
-
-    const rankingResult = await rankingAgent({
-      curatedArticles: curationResult.curatedArticles,
-      topicsExtracted: true,
-      topicsExtractedCount: topicResult.topicsExtractedCount,
-    });
-    console.log(`📊 Ranked ${rankingResult.rankedCount} articles`);
-
-    // Extract topics list for summary generation
-    // const extractedTopics = userInterests; // Use user interests as topics for now
-
-    console.log('✅ News curation workflow completed successfully');
-
-    // Return the workflow result
     return {
-      userInterests,
-      searchResults: searchResult.searchResults || [],
-      curatedArticles: curationResult.curatedArticles || [],
-      duplicatesFiltered: curationResult.duplicatesFiltered || 0,
-      newArticlesSaved: curationResult.newArticlesSaved || 0,
-      topicsExtractedCount: topicResult.topicsExtractedCount || 0,
-      rankedCount: rankingResult.rankedCount || 0,
+      userInterests: result.userInterests || [],
+      searchResults: result.searchResults || [],
+      curatedArticles: result.curatedArticles || [],
+      clusteredArticles: result.clusteredArticles || [],
+      duplicatesFiltered: result.duplicatesFiltered || 0,
+      newArticlesSaved: result.newArticlesSaved || 0,
+      articleClustersFound: result.articleClustersFound || 0,
+      topicsExtractedCount: result.topicsExtractedCount || 0,
+      rankedCount: result.rankedCount || 0,
+      scrapingSuccessCount: result.scrapingSuccessCount || 0,
+      briefingId: result.briefingId || null,
     };
   } catch (error) {
-    console.error('❌ News curation workflow failed:', error);
+    console.error('❌ Unified news curation workflow failed:', error);
     throw error;
   }
 }
 
-/**
- * Generate executive summary in the background
- * This runs asynchronously after the main workflow completes
- */
-export async function generateSummaryInBackground(
-  briefingId: number,
-  articles: Article[],
-  topics: string[],
-  force = false
-): Promise<void> {
-  console.log(`📝 Starting background summary generation...`);
-  console.log(
-    `📝 Briefing ID: ${briefingId}, Articles: ${articles.length}, Topics: ${topics.length}`
-  );
-
-  try {
-    const scraperAgent = new ScraperAgent();
-    const summarizerAgent = new SummarizerAgent();
-
-    // Check if summary already exists (unless forced)
-    console.log('📝 Checking if summary already exists...');
-    if (!force && DatabaseWriterAgent.briefingHasSummary(briefingId)) {
-      console.log('📄 Summary already exists for this briefing');
-      return;
-    }
-
-    if (force && DatabaseWriterAgent.briefingHasSummary(briefingId)) {
-      console.log('📄 Summary exists but force=true, regenerating...');
-    }
-
-    // Step 1: Scrape full article content
-    console.log('🕷️ Starting article scraping...');
-    console.log(`🕷️ Scraping ${articles.length} articles...`);
-
-    // Add timeout wrapper for scraping
-    const scrapingPromise = scraperAgent.scrapeArticles(articles);
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(
-        () => reject(new Error('Scraping timeout after 5 minutes')),
-        5 * 60 * 1000
-      );
-    });
-
-    const scrapedContent = (await Promise.race([
-      scrapingPromise,
-      timeoutPromise,
-    ])) as ScrapedContent[];
-    const successfulScrapes = scrapedContent.filter(
-      (content: ScrapedContent) => content.success
-    );
-    console.log(
-      `✅ Successfully scraped ${successfulScrapes.length}/${articles.length} articles`
-    );
-
-    // Log details about failed scrapes
-    const failedScrapes = scrapedContent.filter(
-      (content: ScrapedContent) => !content.success
-    );
-    if (failedScrapes.length > 0) {
-      console.log(`⚠️ Failed scrapes: ${failedScrapes.length}`);
-      failedScrapes.forEach((failed: ScrapedContent, index: number) => {
-        if (index < 3) {
-          // Only log first 3 failures to avoid spam
-          console.log(`  - ${failed.url}: ${failed.error}`);
-        }
-      });
-    }
-
-    // Step 2: Generate executive summary
-    console.log('🤖 Generating executive summary...');
-    const summary = await summarizerAgent.generateSummary(
-      scrapedContent,
-      articles,
-      topics
-    );
-    console.log('📋 Executive summary generated');
-    console.log(
-      `📋 Summary has ${summary.mainStories.length} main stories, ${summary.quickBites.length} quick bites`
-    );
-
-    // Log the full summary for debugging
-    console.log('📋 Generated Summary:');
-    console.log(`  Title: "${summary.title}"`);
-    console.log(`  Subtitle: "${summary.subtitle}"`);
-    console.log('  Main Stories:');
-    summary.mainStories.forEach((story, index) => {
-      console.log(`    ${index + 1}. ${story.headline}`);
-      console.log(`       Summary: ${story.summary.substring(0, 100)}...`);
-      console.log(`       Takeaway: ${story.keyTakeaway}`);
-    });
-    console.log('  Quick Bites:');
-    summary.quickBites.forEach((bite, index) => {
-      console.log(`    ${index + 1}. ${bite.headline}`);
-      console.log(`       ${bite.oneLineSummary}`);
-    });
-
-    // Step 3: Save to database
-    console.log('💾 Saving summary to database...');
-    await DatabaseWriterAgent.saveSummaryToBriefing(briefingId, summary);
-    console.log('✅ Summary saved successfully');
-
-    // Notify renderer that summary is ready
-    console.log('📢 Notifying renderer that summary is ready...');
-    await notifyRendererSummaryReady(briefingId);
-    console.log('📢 Notification sent');
-
-    // Send desktop notification
-    console.log('📱 Sending desktop notification...');
-    const notificationState: NotificationState = {
-      briefingId,
-      briefingTitle: `Daily Briefing - ${new Date().toLocaleDateString(
-        'en-US',
-        {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-        }
-      )}`,
-      articleCount: articles.length,
-    };
-    await NotificationAgent.sendBriefingNotification(notificationState);
-    console.log('📱 Desktop notification sent');
-  } catch (error) {
-    console.error('❌ Background summary generation failed:', error);
-    console.error(
-      '❌ Error stack:',
-      error instanceof Error ? error.stack : 'No stack'
-    );
-    // Don't throw - this is background processing
-  }
-}
+// generateSummaryInBackground function removed - now handled by unified workflow
 
 /**
  * Save briefing to database and return the ID
@@ -417,27 +287,4 @@ async function saveBriefingToDatabase(
     JSON.stringify(articles)
   );
   return result.lastInsertRowid as number;
-}
-
-/**
- * Notify renderer process that summary is ready
- */
-async function notifyRendererSummaryReady(briefingId: number): Promise<void> {
-  try {
-    // Import BrowserWindow at runtime to avoid circular dependency issues
-    const electron = await import('electron');
-    const mainWindow = electron.BrowserWindow.getAllWindows().find(
-      win => !win.isDestroyed()
-    );
-
-    if (mainWindow) {
-      console.log(`📢 Sending summary-ready event for briefing ${briefingId}`);
-      mainWindow.webContents.send('summary-ready', briefingId);
-      console.log(`📢 Summary-ready event sent successfully`);
-    } else {
-      console.log(`📢 No main window found for notification`);
-    }
-  } catch (error) {
-    console.error(`📢 Error sending notification:`, error);
-  }
 }

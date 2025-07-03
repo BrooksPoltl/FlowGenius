@@ -4,41 +4,102 @@
  */
 
 import db from '../../../db';
-import { Briefing } from '../../../../shared/types';
+import { Briefing, Article, ExecutiveSummary } from '../../../../shared/types';
 
-interface ExecutiveSummary {
-  title: string;
-  subtitle: string;
-  mainStories: MainStory[];
-  quickBites: QuickBite[];
-  images: SummaryImage[];
-  citations: Citation[];
-  generatedAt: string;
-}
+// Remove local interfaces - using shared types instead
 
-interface MainStory {
-  headline: string;
-  summary: string;
-  keyTakeaway: string;
-  citations: string[];
-}
+/**
+ * Database writer agent function for LangGraph integration
+ * Creates a new briefing and saves all data atomically
+ */
+export async function databaseWriterAgent(state: {
+  clusteredArticles: Article[];
+  executiveSummary: ExecutiveSummary;
+  summarizationComplete: boolean;
+  userInterests: string[];
+}): Promise<{
+  briefingId: number;
+  briefingSaved: boolean;
+}> {
+  console.log('💾 DatabaseWriterAgent: Starting database write operations');
 
-interface QuickBite {
-  headline: string;
-  oneLineSummary: string;
-  citation: string;
-}
+  try {
+    // Generate briefing title
+    const date = new Date().toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+    const title = `Daily Briefing - ${date}`;
 
-interface SummaryImage {
-  url: string;
-  caption: string;
-  sourceUrl: string;
-}
+    // Start transaction for atomic operations
+    const transaction = db.transaction(() => {
+      // Create new briefing
+      const createBriefing = db.prepare(`
+        INSERT INTO Briefings (title, topics_json, articles_json, summary_json)
+        VALUES (?, ?, ?, ?)
+      `);
 
-interface Citation {
-  url: string;
-  title: string;
-  source: string;
+      const briefingResult = createBriefing.run(
+        title,
+        JSON.stringify(state.userInterests),
+        JSON.stringify(state.clusteredArticles),
+        JSON.stringify(state.executiveSummary)
+      );
+
+      const briefingId = briefingResult.lastInsertRowid as number;
+
+      // Update articles with new scoring fields if they exist in database
+      const updateArticleScores = db.prepare(`
+        UPDATE Articles 
+        SET cluster_id = ?, significance_score = ?, interest_score = ?
+        WHERE url = ?
+      `);
+
+      let articlesUpdated = 0;
+      state.clusteredArticles.forEach(article => {
+        try {
+          const result = updateArticleScores.run(
+            article.cluster_id || null,
+            article.significance_score || 0.0,
+            article.interest_score || 0.0,
+            article.url
+          );
+          if (result.changes > 0) {
+            articlesUpdated++;
+          }
+        } catch (error) {
+          console.warn(
+            `Failed to update article scores for ${article.url}:`,
+            error
+          );
+        }
+      });
+
+      console.log(
+        `💾 DatabaseWriterAgent: Updated scores for ${articlesUpdated} articles`
+      );
+
+      return briefingId;
+    });
+
+    const briefingId = transaction();
+
+    console.log(
+      `💾 DatabaseWriterAgent: Created briefing ${briefingId} with ${state.clusteredArticles.length} articles`
+    );
+    console.log(
+      `💾 DatabaseWriterAgent: Summary includes ${state.executiveSummary.mainStories.length} main stories and ${state.executiveSummary.quickBites.length} quick bites`
+    );
+
+    return {
+      briefingId,
+      briefingSaved: true,
+    };
+  } catch (error) {
+    console.error('💾 DatabaseWriterAgent: Error saving briefing:', error);
+    throw error;
+  }
 }
 
 /**

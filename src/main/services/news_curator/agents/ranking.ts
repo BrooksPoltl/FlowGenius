@@ -1,24 +1,25 @@
 /**
- * RankingAgent - Calculates personalization scores for articles
- * This agent computes scores based on user's topic affinities and updates articles
+ * RankingAgent - Calculates combined interest scores for articles
+ * This agent computes scores based on user's topic affinities and news significance
  */
 
 import db from '../../../db';
 import type { WorkflowState } from '../../../../shared/types';
 
 /**
- * RankingAgent function that calculates personalization scores for articles
- * @param state - State containing curated articles
+ * RankingAgent function that calculates combined interest scores for articles
+ * Combines news significance score with user personalization score
+ * @param state - State containing clustered articles
  * @returns Updated state with ranking complete
  */
 export async function rankingAgent(
   state: Partial<WorkflowState>
 ): Promise<Partial<WorkflowState>> {
   try {
-    const curatedArticles = state.curatedArticles || [];
+    const clusteredArticles = state.clusteredArticles || [];
 
-    if (curatedArticles.length === 0) {
-      console.log('No articles to rank');
+    if (clusteredArticles.length === 0) {
+      console.log('📊 RankingAgent: No articles to rank');
       return {
         ...state,
         articlesRanked: true,
@@ -27,7 +28,7 @@ export async function rankingAgent(
     }
 
     console.log(
-      `Ranking ${curatedArticles.length} articles based on topic affinities...`
+      `📊 RankingAgent: Ranking ${clusteredArticles.length} articles with combined significance + interest scoring...`
     );
 
     // Prepare database statements
@@ -43,15 +44,15 @@ export async function rankingAgent(
       WHERE at.article_id = ?
     `);
 
-    const updatePersonalizationScore = db.prepare(`
+    const updateScores = db.prepare(`
       UPDATE Articles 
-      SET personalization_score = ?
+      SET personalization_score = ?, significance_score = ?, interest_score = ?
       WHERE id = ?
     `);
 
     let rankedCount = 0;
 
-    for (const article of curatedArticles) {
+    for (const article of clusteredArticles) {
       try {
         // Get article ID from database
         const articleData = getArticleId.get(article.url) as
@@ -69,9 +70,19 @@ export async function rankingAgent(
           affinity_score: number | null;
         }>;
 
+        // Get significance score from clustering (default to 0.5 if not set)
+        const significanceScore = article.significance_score || 0.5;
+
         if (topicData.length === 0) {
-          // No topics extracted yet, set default score
-          updatePersonalizationScore.run(0.0, articleData.id);
+          // No topics extracted yet, use significance score only
+          const interestScore = significanceScore * 0.8; // Weight significance at 80% when no personalization data
+          updateScores.run(
+            0.0,
+            significanceScore,
+            interestScore,
+            articleData.id
+          );
+          rankedCount++;
           continue;
         }
 
@@ -93,12 +104,22 @@ export async function rankingAgent(
         const personalizationScore =
           totalWeight > 0 ? totalScore / totalWeight : 0;
 
-        // Update the article's personalization score
-        updatePersonalizationScore.run(personalizationScore, articleData.id);
+        // Combine significance and personalization scores
+        // 60% personalization + 40% significance for balanced scoring
+        const interestScore =
+          personalizationScore * 0.6 + significanceScore * 0.4;
+
+        // Update all scores in the database
+        updateScores.run(
+          personalizationScore,
+          significanceScore,
+          interestScore,
+          articleData.id
+        );
         rankedCount++;
 
         console.log(
-          `📊 Ranked "${article.title}": ${personalizationScore.toFixed(3)} (${topicData.length} topics)`
+          `📊 Ranked "${article.title}": interest=${interestScore.toFixed(3)} (personalization=${personalizationScore.toFixed(3)}, significance=${significanceScore.toFixed(3)})`
         );
       } catch (error) {
         console.error(`Error ranking article "${article.title}":`, error);

@@ -25,6 +25,7 @@ import { up as migration003Up } from './migrations/003_add_summary_column';
 import { up as migration004Up } from './migrations/004_add_briefing_json_columns';
 import { up as migration005Up } from './migrations/005_add_user_settings_table';
 import { up as migration006Up } from './migrations/006_add_categories_tables';
+import { up as migration007Up } from './migrations/007_add_clustering_and_scoring_columns';
 
 // Get the path to the user data directory
 const userDataPath = app.getPath('userData');
@@ -185,6 +186,24 @@ function runMigrations(db: DatabaseType): void {
       console.log('Running migration 006: Add Categories tables...');
       migration006Up(db);
       console.log('Migration 006 completed');
+    }
+
+    // Migration 007: Add clustering and scoring columns
+    const articlesColumns007 = db.pragma('table_info(Articles)') as Array<{
+      name: string;
+    }>;
+    const articlesColumnNames007 = articlesColumns007.map(col => col.name);
+
+    if (
+      !articlesColumnNames007.includes('cluster_id') ||
+      !articlesColumnNames007.includes('significance_score') ||
+      !articlesColumnNames007.includes('interest_score')
+    ) {
+      console.log(
+        'Running migration 007: Add clustering and scoring columns...'
+      );
+      migration007Up(db);
+      console.log('Migration 007 completed');
     }
   } catch (error) {
     console.error('Error running migrations:', error);

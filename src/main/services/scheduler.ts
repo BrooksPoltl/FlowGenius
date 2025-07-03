@@ -5,7 +5,7 @@
 
 import * as cron from 'node-cron';
 import { getUserSettings } from './user-settings';
-import { executeNewsCurationWorkflow } from './news_curator/graph';
+// Dynamic import to avoid circular dependency
 import { getEnabledCategorySchedules } from './categories';
 import type { CategoryWithSchedule, WorkflowState } from '../../shared/types';
 
@@ -212,6 +212,9 @@ export class SchedulerService {
       console.log(`⏰ Starting ${type} briefing workflow...`);
       const startTime = Date.now();
 
+      const { executeNewsCurationWorkflow } = await import(
+        './news_curator/graph'
+      );
       const result = await executeNewsCurationWorkflow(categoryId);
 
       const duration = Date.now() - startTime;
@@ -242,9 +245,6 @@ export class SchedulerService {
       // Import database and other dependencies
       const db = await import('../db').then(m => m.default);
       const { getUserInterests } = await import('./settings');
-      const { generateSummaryInBackground } = await import(
-        './news_curator/graph'
-      );
 
       const curatedArticles = result.curatedArticles || [];
 
@@ -288,18 +288,21 @@ export class SchedulerService {
       );
 
       // Notify renderer that a new briefing was created
-      const { notifyRendererBriefingCreated } = await import('../index');
-      notifyRendererBriefingCreated(briefingId);
+      // Dynamic import to avoid circular dependency
+      try {
+        const electron = await import('electron');
+        const mainWindow = electron.BrowserWindow.getAllWindows().find(
+          win => !win.isDestroyed()
+        );
+        if (mainWindow) {
+          mainWindow.webContents.send('briefing-created', briefingId);
+        }
+      } catch (error) {
+        console.error('⏰ Error sending briefing notification:', error);
+      }
 
-      // Start background summary generation for the briefing
-      generateSummaryInBackground(
-        briefingId,
-        curatedArticles,
-        topics,
-        false
-      ).catch((error: unknown) => {
-        console.error('⏰ Background summary generation failed:', error);
-      });
+      // Summary generation is now handled by the unified workflow
+      console.log('⏰ Summary generation handled by unified workflow');
     } catch (error) {
       console.error('⏰ Error creating briefing:', error);
     }

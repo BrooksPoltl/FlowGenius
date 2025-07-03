@@ -4,7 +4,7 @@
  * Manages shared state to persist across screen switches
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { TrendingUp, BarChart3, Menu, X, Settings } from 'lucide-react';
 
 import { DashboardScreen } from '../screens/dashboard';
@@ -14,6 +14,7 @@ import { ArticlesView } from './ArticlesView';
 import { SummaryView } from './SummaryView';
 import { InterestsModal } from './InterestsModal';
 import { Article } from './ui/ArticleCard';
+import { Category } from '../../shared/types';
 
 type AppScreen = 'news' | 'dashboard' | 'settings';
 
@@ -37,8 +38,34 @@ export function MainApp() {
   const [selectedBriefingId, setSelectedBriefingId] = useState<number | null>(
     null
   );
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(
+    null
+  );
+  const [error, setError] = useState<string | null>(null);
+  const [cooldownStatus, setCooldownStatus] = useState<{
+    scheduled: string[];
+    cooledDown: string[];
+  } | null>(null);
+
+  /**
+   * Load categories from backend
+   */
+  const loadCategories = async () => {
+    try {
+      const result = await window.electronAPI.getAllCategories();
+      if (result.success) {
+        setCategories(result.data);
+      }
+    } catch (error) {
+      console.error('Error loading categories:', error);
+    }
+  };
 
   useEffect(() => {
+    // Load categories on component mount
+    loadCategories();
+
     // Listen for summary ready notifications
     const unsubscribeSummary = window.electronAPI.onSummaryReady(
       (briefingId: number) => {
@@ -71,6 +98,95 @@ export function MainApp() {
       }
     };
   }, [currentBriefingId]);
+
+  /**
+   * Check cooldown status for user interests
+   */
+  const checkCooldownStatus = useCallback(async () => {
+    try {
+      const result = await window.electronAPI.getCooldownStatus();
+      if (result.success && result.data) {
+        setCooldownStatus(result.data);
+      }
+    } catch (error) {
+      console.error('Error checking cooldown status:', error);
+    }
+  }, []);
+
+  /**
+   * Trigger news curation workflow
+   */
+  const handleCurateNews = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      console.log(
+        `🔄 [RENDERER] Starting news curation for category ${selectedCategoryId || 'General'}...`
+      );
+
+      // Check cooldown status before starting
+      await checkCooldownStatus();
+
+      const result = await window.electronAPI.curateNews(selectedCategoryId);
+      console.log('🔄 [RENDERER] Curation result:', result);
+
+      if (result.success) {
+        // Reload articles after curation is now handled by onBriefingCreated event
+        // Check if any articles were found
+        if (
+          result.data &&
+          (!result.data.curatedArticles ||
+            result.data.curatedArticles.length === 0)
+        ) {
+          setError(
+            'No articles found. Your interests might be on cooldown or no relevant articles are available.'
+          );
+        }
+      } else {
+        setError(result.error || 'Failed to curate news');
+      }
+    } catch (error) {
+      console.error('🔄 [RENDERER] Error curating news:', error);
+      setError('Failed to curate news');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /**
+   * Force refresh that bypasses cooldown periods
+   */
+  const handleForceRefresh = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      console.log('🔄 [RENDERER] Starting force refresh...');
+      const result = await window.electronAPI.forceRefresh();
+      console.log('🔄 [RENDERER] Force refresh result:', result);
+
+      if (result.success) {
+        // Reset cooldown status since we bypassed it
+        setCooldownStatus({ scheduled: [], cooledDown: [] });
+
+        if (
+          result.data &&
+          (!result.data.curatedArticles ||
+            result.data.curatedArticles.length === 0)
+        ) {
+          setError(
+            'No articles found even with force refresh. This may indicate API issues or no relevant content is available.'
+          );
+        }
+      } else {
+        setError(result.error || 'Failed to force refresh');
+      }
+    } catch (error) {
+      console.error('🔄 [RENDERER] Error with force refresh:', error);
+      setError('Failed to force refresh');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   /**
    * Handles when a briefing is selected from the history sidebar
@@ -166,33 +282,101 @@ export function MainApp() {
               {/* Tab Navigation */}
               <div className="bg-white border-b border-gray-200">
                 <div className="px-6 py-3">
-                  <div className="flex space-x-4">
-                    <button
-                      onClick={() => setActiveTab('articles')}
-                      className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                        activeTab === 'articles'
-                          ? 'bg-blue-100 text-blue-700'
-                          : 'text-gray-500 hover:text-gray-700'
-                      }`}
-                    >
-                      Articles
-                    </button>
-                    <button
-                      onClick={() => {
-                        setActiveTab('summary');
-                        setSummaryReady(false); // Reset notification when viewing summary
-                      }}
-                      className={`px-4 py-2 text-sm font-medium rounded-md transition-colors relative ${
-                        activeTab === 'summary'
-                          ? 'bg-blue-100 text-blue-700'
-                          : 'text-gray-500 hover:text-gray-700'
-                      }`}
-                    >
-                      Summary
-                      {summaryReady && activeTab !== 'summary' && (
-                        <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full" />
+                  <div className="flex items-center justify-between">
+                    <div className="flex space-x-4">
+                      <button
+                        onClick={() => setActiveTab('articles')}
+                        className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                          activeTab === 'articles'
+                            ? 'bg-blue-100 text-blue-700'
+                            : 'text-gray-500 hover:text-gray-700'
+                        }`}
+                      >
+                        Articles
+                      </button>
+                      <button
+                        onClick={() => {
+                          setActiveTab('summary');
+                          setSummaryReady(false); // Reset notification when viewing summary
+                        }}
+                        className={`px-4 py-2 text-sm font-medium rounded-md transition-colors relative ${
+                          activeTab === 'summary'
+                            ? 'bg-blue-100 text-blue-700'
+                            : 'text-gray-500 hover:text-gray-700'
+                        }`}
+                      >
+                        Summary
+                        {summaryReady && activeTab !== 'summary' && (
+                          <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full" />
+                        )}
+                      </button>
+                    </div>
+
+                    <div className="flex items-center space-x-4">
+                      {/* Category Dropdown - Always visible at tab level */}
+                      {categories.length > 0 && (
+                        <div className="flex items-center space-x-2">
+                          <label className="text-sm font-medium text-gray-700">
+                            Category:
+                          </label>
+                          <select
+                            value={selectedCategoryId || ''}
+                            onChange={e => {
+                              const newCategoryId = e.target.value
+                                ? Number(e.target.value)
+                                : null;
+                              setSelectedCategoryId(newCategoryId);
+                              // Clear historical articles when category changes to show fresh content
+                              if (selectedArticles) {
+                                setSelectedArticles(null);
+                                setSelectedBriefingId(null);
+                              }
+                            }}
+                            className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500 bg-white"
+                          >
+                            <option value="">General (All Interests)</option>
+                            {categories.map(category => (
+                              <option key={category.id} value={category.id}>
+                                {category.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                       )}
-                    </button>
+
+                      <div className="flex items-center space-x-3">
+                        {/* Refresh button - always visible and functional */}
+                        <button
+                          onClick={handleCurateNews}
+                          disabled={isLoading}
+                          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                          title="Curate fresh articles for the selected category"
+                        >
+                          {isLoading ? (
+                            <>
+                              <div className="animate-spin -ml-1 mr-3 h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                              Curating...
+                            </>
+                          ) : (
+                            'Curate News'
+                          )}
+                        </button>
+
+                        {/* Force Refresh button - always visible and functional */}
+                        <button
+                          onClick={handleForceRefresh}
+                          disabled={isLoading}
+                          className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                          title="Force refresh bypasses cooldown periods and searches all interests"
+                        >
+                          {isLoading ? (
+                            <div className="animate-spin -ml-1 mr-2 h-4 w-4 border-2 border-gray-600 border-t-transparent rounded-full" />
+                          ) : (
+                            'Force'
+                          )}
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -204,10 +388,10 @@ export function MainApp() {
                     onBriefingChange={setCurrentBriefingId}
                     selectedArticles={selectedArticles}
                     selectedBriefingId={selectedBriefingId}
-                    onClearSelection={() => {
-                      setSelectedArticles(null);
-                      setSelectedBriefingId(null);
-                    }}
+                    selectedCategoryId={selectedCategoryId}
+                    isLoading={isLoading}
+                    error={error}
+                    cooldownStatus={cooldownStatus}
                   />
                 ) : (
                   <SummaryView

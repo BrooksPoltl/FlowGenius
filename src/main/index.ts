@@ -347,19 +347,8 @@ function setupNewsIPC(): void {
         // Notify renderer that a new briefing was created
         notifyRendererBriefingCreated(briefingId);
 
-        // Start background summary generation for the briefing
-        const { generateSummaryInBackground } = await import(
-          './services/news_curator/graph'
-        );
-
-        generateSummaryInBackground(
-          briefingId,
-          result.curatedArticles,
-          topics,
-          false
-        ).catch(error => {
-          console.error('❌ Background summary generation failed:', error);
-        });
+        // Summary generation is now handled by the unified workflow
+        console.log('📝 Summary generation handled by unified workflow');
       }
 
       return { success: true, data: result };
@@ -443,19 +432,8 @@ function setupNewsIPC(): void {
         // Notify renderer that a new briefing was created
         notifyRendererBriefingCreated(briefingId);
 
-        // Start background summary generation for the briefing
-        const { generateSummaryInBackground } = await import(
-          './services/news_curator/graph'
-        );
-
-        generateSummaryInBackground(
-          briefingId,
-          result.curatedArticles,
-          topics2,
-          false
-        ).catch(error => {
-          console.error('❌ Background summary generation failed:', error);
-        });
+        // Summary generation is now handled by the unified workflow
+        console.log('📝 Summary generation handled by unified workflow');
       }
 
       return { success: true, data: result };
@@ -631,19 +609,8 @@ function setupNewsIPC(): void {
         // Notify renderer that a new briefing was created
         notifyRendererBriefingCreated(briefingId);
 
-        // Start background summary generation for the briefing
-        const { generateSummaryInBackground } = await import(
-          './services/news_curator/graph'
-        );
-
-        generateSummaryInBackground(
-          briefingId,
-          result.curatedArticles,
-          topics3,
-          false
-        ).catch(error => {
-          console.error('❌ Background summary generation failed:', error);
-        });
+        // Summary generation is now handled by the unified workflow
+        console.log('📝 Summary generation handled by unified workflow');
       }
 
       // Get the newly curated articles with their personalization scores
@@ -1126,24 +1093,11 @@ function setupNewsIPC(): void {
         `🧪 Starting manual summary generation with ${articles.length} articles and ${topics.length} topics`
       );
 
-      // Import the background generation function
-      const { generateSummaryInBackground } = await import(
-        './services/news_curator/graph'
+      // Note: Manual summary generation is no longer supported with unified workflow
+      // The unified workflow now handles all summary generation automatically
+      console.log(
+        '🧪 Manual summary generation not supported with unified workflow'
       );
-
-      // Start the background process with force=true to regenerate
-      generateSummaryInBackground(briefingId, articles, topics, true)
-        .then(() => {
-          console.log(
-            `🧪 Manual summary generation completed for briefing ${briefingId}`
-          );
-        })
-        .catch(error => {
-          console.error(
-            `🧪 Manual summary generation failed for briefing ${briefingId}:`,
-            error
-          );
-        });
 
       return { success: true, message: 'Summary generation started (force)' };
     } catch (error) {

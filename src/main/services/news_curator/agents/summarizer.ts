@@ -71,21 +71,48 @@ export class SummarizerAgent {
    * Strip markdown code blocks from AI response and parse JSON
    */
   private static parseAIResponse(response: string): any {
-    // Remove markdown code blocks if present
-    let cleanResponse = response.trim();
+    try {
+      // Remove markdown code blocks if present
+      let cleanResponse = response.trim();
 
-    // Remove ```json and ``` markers
-    if (cleanResponse.startsWith('```json')) {
-      cleanResponse = cleanResponse
-        .replace(/^```json\s*/, '')
-        .replace(/\s*```$/, '');
-    } else if (cleanResponse.startsWith('```')) {
-      cleanResponse = cleanResponse
-        .replace(/^```\s*/, '')
-        .replace(/\s*```$/, '');
+      // Remove ```json and ``` markers
+      if (cleanResponse.startsWith('```json')) {
+        cleanResponse = cleanResponse
+          .replace(/^```json\s*/, '')
+          .replace(/\s*```$/, '');
+      } else if (cleanResponse.startsWith('```')) {
+        cleanResponse = cleanResponse
+          .replace(/^```\s*/, '')
+          .replace(/\s*```$/, '');
+      }
+
+      const trimmed = cleanResponse.trim();
+      
+      // Log the response for debugging
+      console.log('📝 SummarizerAgent: Parsing AI response:', trimmed.substring(0, 200) + '...');
+      
+      if (!trimmed) {
+        throw new Error('Empty response from AI');
+      }
+
+      return JSON.parse(trimmed);
+    } catch (error) {
+      console.error('📝 SummarizerAgent: JSON parsing error:', error);
+      console.error('📝 SummarizerAgent: Raw response:', response);
+      
+      // Try to extract JSON from the response if it's partially formed
+      const jsonMatch = response.match(/\[.*\]/s) || response.match(/\{.*\}/s);
+      if (jsonMatch) {
+        try {
+          console.log('📝 SummarizerAgent: Attempting to parse extracted JSON');
+          return JSON.parse(jsonMatch[0]);
+        } catch (extractError) {
+          console.error('📝 SummarizerAgent: Failed to parse extracted JSON:', extractError);
+        }
+      }
+      
+      throw new Error(`Failed to parse AI response as JSON: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-
-    return JSON.parse(cleanResponse.trim());
   }
 
   /**
@@ -193,19 +220,29 @@ Content: ${content.content.slice(0, 1000)}...
         })
       );
 
+      console.log('📝 SummarizerAgent: Main stories AI response length:', (response.content as string).length);
+
       const parsed = SummarizerAgent.parseAIResponse(
         response.content as string
       );
-      return parsed.map((story: any, index: number) => ({
-        ...story,
-        citations: [topContent[index].url],
+      
+      // Ensure parsed is an array
+      const parsedArray = Array.isArray(parsed) ? parsed : [parsed];
+      
+      return parsedArray.map((story: any, index: number) => ({
+        headline: story.headline || story.title || topContent[index]?.title || `Main Story ${index + 1}`,
+        summary: story.summary || `${topContent[index]?.content?.slice(0, 200) || 'No content available'}...`,
+        keyTakeaway: story.keyTakeaway || 'This story provides important updates in your areas of interest.',
+        citations: [topContent[index]?.url || ''],
       }));
     } catch (error) {
       console.error('Error generating main stories:', error);
+      console.error('Error details:', error instanceof Error ? error.message : 'Unknown error');
+      
       // Fallback to simple summaries
-      return topContent.map(content => ({
-        headline: content.title,
-        summary: `${content.content.slice(0, 200)}...`,
+      return topContent.map((content, index) => ({
+        headline: content.title || `Main Story ${index + 1}`,
+        summary: `${content.content?.slice(0, 200) || 'No content available'}...`,
         keyTakeaway:
           'This story provides important updates in your areas of interest.',
         citations: [content.url],
@@ -259,19 +296,28 @@ Content: ${content.content.slice(0, 500)}...
         })
       );
 
+      console.log('📝 SummarizerAgent: Quick bites AI response length:', (response.content as string).length);
+
       const parsed = SummarizerAgent.parseAIResponse(
         response.content as string
       );
-      return parsed.map((bite: any, index: number) => ({
-        ...bite,
-        citation: scrapedContent[index].url,
+      
+      // Ensure parsed is an array
+      const parsedArray = Array.isArray(parsed) ? parsed : [parsed];
+      
+      return parsedArray.map((bite: any, index: number) => ({
+        headline: bite.headline || bite.title || `Quick Update ${index + 1}`,
+        oneLineSummary: bite.oneLineSummary || bite.summary || `${scrapedContent[index]?.content?.slice(0, 100) || 'No content available'}...`,
+        citation: scrapedContent[index]?.url || '',
       }));
     } catch (error) {
       console.error('Error generating quick bites:', error);
+      console.error('Error details:', error instanceof Error ? error.message : 'Unknown error');
+      
       // Fallback to simple summaries
-      return scrapedContent.map(content => ({
-        headline: content.title,
-        oneLineSummary: `${content.content.slice(0, 100)}...`,
+      return scrapedContent.map((content, index) => ({
+        headline: content.title || `Quick Update ${index + 1}`,
+        oneLineSummary: `${content.content?.slice(0, 100) || 'No content available'}...`,
         citation: content.url,
       }));
     }

@@ -22,31 +22,29 @@ interface ArticlesViewProps {
   onBriefingChange: (briefingId: number | null) => void;
   selectedArticles?: CardArticle[] | null;
   selectedBriefingId?: number | null;
+  selectedCategoryId?: number | null;
+  isLoading: boolean;
+  error: string | null;
+  cooldownStatus: {
+    scheduled: string[];
+    cooledDown: string[];
+  } | null;
 }
 
 export function ArticlesView({
   onBriefingChange,
   selectedArticles,
   selectedBriefingId,
+  selectedCategoryId,
+  isLoading,
+  error,
+  cooldownStatus,
 }: ArticlesViewProps) {
   console.log('🔍 [RENDERER] ArticlesView component rendering...');
 
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [currentBriefingId, setCurrentBriefingId] = useState<number | null>(
-    null
-  );
-
-  const [cooldownStatus, setCooldownStatus] = useState<{
-    scheduled: string[];
-    cooledDown: string[];
-  } | null>(null);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(
-    null
-  );
   const [newBriefingNotification, setNewBriefingNotification] = useState<{
     show: boolean;
     briefingId: number | null;
@@ -143,7 +141,6 @@ export function ArticlesView({
 
           setArticles(articlesData);
           setLastUpdated(briefing.created_at);
-          setCurrentBriefingId(briefing.id);
           onBriefingChange(briefing.id);
 
           console.log('📰 [RENDERER] Successfully set articles state');
@@ -159,7 +156,6 @@ export function ArticlesView({
           );
           setArticles([]);
           setLastUpdated(null);
-          setCurrentBriefingId(null);
           onBriefingChange(null);
         }
       } else {
@@ -174,7 +170,6 @@ export function ArticlesView({
         );
         setArticles([]);
         setLastUpdated(null);
-        setCurrentBriefingId(null);
         onBriefingChange(null);
       }
     } catch (error) {
@@ -208,91 +203,7 @@ export function ArticlesView({
     }
   }, []);
 
-  /**
-   * Trigger news curation workflow
-   */
-  const handleCurateNews = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      console.log(
-        `🔄 [RENDERER] Starting news curation for category ${selectedCategoryId || 'General'}...`
-      );
-
-      // Check cooldown status before starting
-      await checkCooldownStatus();
-
-      const result = await window.electronAPI.curateNews(selectedCategoryId);
-      console.log('🔄 [RENDERER] Curation result:', result);
-
-      if (result.success) {
-        // Reload articles after curation
-        await loadArticles();
-
-        // Check if any articles were found
-        if (
-          result.data &&
-          (!result.data.curatedArticles ||
-            result.data.curatedArticles.length === 0)
-        ) {
-          setError(
-            'No articles found. Your interests might be on cooldown or no relevant articles are available.'
-          );
-        }
-      } else {
-        setError(result.error || 'Failed to curate news');
-      }
-    } catch (error) {
-      console.error('🔄 [RENDERER] Error curating news:', error);
-      setError('Failed to curate news');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  /**
-   * Force refresh that bypasses cooldown periods
-   */
-  const handleForceRefresh = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      console.log('🔄 [RENDERER] Starting force refresh...');
-      const result = await window.electronAPI.forceRefresh();
-      console.log('🔄 [RENDERER] Force refresh result:', result);
-
-      if (result.success) {
-        await loadArticles();
-        // Reset cooldown status since we bypassed it
-        setCooldownStatus({ scheduled: [], cooledDown: [] });
-
-        if (
-          result.data &&
-          (!result.data.curatedArticles ||
-            result.data.curatedArticles.length === 0)
-        ) {
-          setError(
-            'No articles found even with force refresh. This may indicate API issues or no relevant content is available.'
-          );
-        }
-      } else {
-        setError(result.error || 'Failed to force refresh');
-      }
-    } catch (error) {
-      console.error('🔄 [RENDERER] Error with force refresh:', error);
-      setError('Failed to force refresh');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-
-
   // Handle selected articles from sidebar or load latest articles
-  // Load categories on component mount
-  useEffect(() => {
-    loadCategories();
-  }, []);
 
   useEffect(() => {
     if (selectedArticles && selectedBriefingId) {
@@ -310,7 +221,6 @@ export function ArticlesView({
           score: article.personalizationScore,
         }))
       );
-      setCurrentBriefingId(selectedBriefingId);
       onBriefingChange(selectedBriefingId);
       // Don't set lastUpdated for selected articles since we don't have creation time
       setLastUpdated(null);
@@ -334,15 +244,15 @@ export function ArticlesView({
       console.log(
         `📢 [RENDERER] New briefing created: ${briefingId}, automatically switching to latest`
       );
-      
+
       // Show notification
       setNewBriefingNotification({ show: true, briefingId });
-      
+
       // Auto-hide notification after 5 seconds
       setTimeout(() => {
         setNewBriefingNotification({ show: false, briefingId: null });
       }, 5000);
-      
+
       // Always auto-load the latest briefing when a new one is created
       // This will clear any selected historical briefing and show the new content
       loadArticles(); // Load the latest briefing
@@ -354,20 +264,6 @@ export function ArticlesView({
       }
     };
   }, [loadArticles]);
-
-  /**
-   * Load categories from backend
-   */
-  const loadCategories = async () => {
-    try {
-      const result = await window.electronAPI.getAllCategories();
-      if (result.success) {
-        setCategories(result.data);
-      }
-    } catch (error) {
-      console.error('Error loading categories:', error);
-    }
-  };
 
   // Add a simple test to verify IPC is working
   useEffect(() => {
@@ -471,20 +367,6 @@ export function ArticlesView({
                 Get started by curating your first batch of personalized news
                 articles.
               </p>
-              <button
-                onClick={handleCurateNews}
-                disabled={loading}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-              >
-                {loading ? (
-                  <>
-                    <div className="animate-spin -ml-1 mr-3 h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
-                    Curating...
-                  </>
-                ) : (
-                  'Curate News'
-                )}
-              </button>
             </>
           )}
         </div>
@@ -512,14 +394,14 @@ export function ArticlesView({
                   />
                 </svg>
               </div>
-                             <div className="ml-3">
-                 <p className="text-sm font-medium text-green-800">
-                   🎉 New briefing created! Automatically loaded latest articles.
-                 </p>
-                 <p className="text-xs text-green-600 mt-1">
-                   Check the sidebar to see all your briefings.
-                 </p>
-               </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-green-800">
+                  🎉 New briefing created! Automatically loaded latest articles.
+                </p>
+                <p className="text-xs text-green-600 mt-1">
+                  Check the sidebar to see all your briefings.
+                </p>
+              </div>
             </div>
             <button
               onClick={() =>
@@ -577,63 +459,7 @@ export function ArticlesView({
             )}
           </div>
           <div className="flex items-center space-x-3">
-            {/* Category Dropdown - Always visible and functional */}
-            {categories.length > 0 && (
-              <div className="flex items-center space-x-2">
-                <label className="text-sm font-medium text-gray-700">
-                  Category:
-                </label>
-                <select
-                  value={selectedCategoryId || ''}
-                  onChange={e =>
-                    setSelectedCategoryId(
-                      e.target.value ? Number(e.target.value) : null
-                    )
-                  }
-                  className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="">General (All Interests)</option>
-                  {categories.map(category => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
 
-
-
-            {/* Refresh button - always visible, disabled when viewing historical */}
-            <button
-              onClick={handleCurateNews}
-              disabled={loading || !!selectedArticles}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-              title={selectedArticles ? "Viewing historical articles - refresh disabled" : "Refresh articles"}
-            >
-              {loading ? (
-                <>
-                  <div className="animate-spin -ml-1 mr-3 h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
-                  Refreshing...
-                </>
-              ) : (
-                'Refresh'
-              )}
-            </button>
-
-            {/* Force Refresh button - always visible, disabled when viewing historical */}
-            <button
-              onClick={handleForceRefresh}
-              disabled={loading || !!selectedArticles}
-              className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-              title={selectedArticles ? "Viewing historical articles - force refresh disabled" : "Force refresh bypasses cooldown periods and searches all interests"}
-            >
-              {loading ? (
-                <div className="animate-spin -ml-1 mr-2 h-4 w-4 border-2 border-gray-600 border-t-transparent rounded-full" />
-              ) : (
-                'Force'
-              )}
-            </button>
           </div>
         </div>
       </div>

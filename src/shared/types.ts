@@ -27,6 +27,9 @@ export interface Article {
   publishedAt: string;
   source: string;
   score?: number;
+  cluster_id?: string;
+  significance_score?: number;
+  interest_score?: number;
 }
 
 export interface Briefing {
@@ -83,6 +86,11 @@ export interface WorkflowState {
   duplicatesFiltered: number;
   newArticlesSaved: number;
 
+  // Clustering phase
+  clusteredArticles: Article[];
+  clusteringComplete: boolean;
+  articleClustersFound: number;
+
   // Topic extraction phase
   topicsExtracted: boolean;
   topicsExtractedCount: number;
@@ -90,6 +98,16 @@ export interface WorkflowState {
   // Ranking phase
   articlesRanked: boolean;
   rankedCount: number;
+
+  // Scraping phase
+  scrapedContent: ScrapedContent[];
+  scrapingComplete: boolean;
+  scrapingSuccessCount: number;
+
+  // Summarization phase
+  executiveSummary: ExecutiveSummary | null;
+  summarizationComplete: boolean;
+  briefingId: number | null;
 
   // Error handling
   error?: string;
@@ -124,4 +142,51 @@ export interface ScheduledJob {
 // Category with Schedule type for enhanced queries
 export interface CategoryWithSchedule extends CategorySchedule {
   categoryName: string;
+}
+
+// Scraping types
+export interface ScrapedContent {
+  url: string;
+  title: string;
+  content: string;
+  author?: string;
+  publishedAt?: string;
+  success: boolean;
+  error?: string;
+}
+
+// Executive Summary types
+export interface ExecutiveSummary {
+  title: string;
+  subtitle: string;
+  mainStories: MainStory[];
+  quickBites: QuickBite[];
+  images: SummaryImage[];
+  citations: Citation[];
+  generatedAt: string;
+}
+
+export interface MainStory {
+  headline: string;
+  summary: string;
+  keyTakeaway: string;
+  citations: string[]; // URLs
+}
+
+export interface QuickBite {
+  headline: string;
+  oneLineSummary: string;
+  citation: string; // URL
+}
+
+export interface SummaryImage {
+  url: string;
+  caption: string;
+  sourceUrl: string;
+}
+
+export interface Citation {
+  url: string;
+  title: string;
+  source: string;
 }

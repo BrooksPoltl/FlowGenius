@@ -11,7 +11,7 @@ import type { WorkflowState } from '../../../../shared/types';
  * @param _state - Current state (can be empty for initial call)
  * @returns Updated state with user interests
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+
 export async function settingsAgent(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _state: Partial<WorkflowState>
