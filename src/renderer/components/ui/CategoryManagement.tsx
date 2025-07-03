@@ -19,11 +19,13 @@ import { Category } from '../../../shared/types';
 interface CategoryManagementProps {
   onError: (error: string) => void;
   onSuccess: (message: string) => void;
+  onUpdate: () => void;
 }
 
 export function CategoryManagement({
   onError,
   onSuccess,
+  onUpdate,
 }: CategoryManagementProps) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [interests, setInterests] = useState<string[]>([]);
@@ -105,7 +107,7 @@ export function CategoryManagement({
       );
       if (result.success) {
         setNewCategoryName('');
-        await loadData();
+        onUpdate();
         onSuccess('Category created successfully');
       } else {
         onError(result.error || 'Failed to create category');
@@ -129,7 +131,7 @@ export function CategoryManagement({
       );
       if (result.success) {
         setEditingCategory(null);
-        await loadData();
+        onUpdate();
         onSuccess('Category updated successfully');
       } else {
         onError(result.error || 'Failed to update category');
@@ -158,7 +160,7 @@ export function CategoryManagement({
     try {
       const result = await window.electronAPI.deleteCategory(categoryId);
       if (result.success) {
-        await loadData();
+        onUpdate();
         onSuccess('Category deleted successfully');
       } else {
         onError(result.error || 'Failed to delete category');
@@ -204,9 +206,10 @@ export function CategoryManagement({
       );
       if (result.success) {
         setManagingInterests(null);
-        onSuccess('Interest assignments saved successfully');
+        onUpdate();
+        onSuccess('Interests updated successfully');
       } else {
-        onError(result.error || 'Failed to save interest assignments');
+        onError(result.error || 'Failed to save interests');
       }
     } catch (error) {
       console.error('Error saving interest assignments:', error);
@@ -286,9 +289,10 @@ export function CategoryManagement({
 
       if (result.success) {
         setManagingSchedule(null);
-        onSuccess('Schedule settings saved successfully');
+        onUpdate();
+        onSuccess('Schedule updated successfully');
       } else {
-        onError(result.error || 'Failed to save schedule settings');
+        onError(result.error || 'Failed to save schedule');
       }
     } catch (error) {
       console.error('Error saving schedule settings:', error);
