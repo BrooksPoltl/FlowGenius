@@ -293,63 +293,8 @@ function setupNewsIPC(): void {
       const result = await executeNewsCurationWorkflow(categoryId);
       console.log('✅ News curation completed successfully');
 
-      // Create briefing when there are curated articles, not just new ones
-      if (result.curatedArticles && result.curatedArticles.length > 0) {
-        let briefingTitle = new Date().toLocaleDateString('en-US', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-        });
-
-        // Add category name if categoryId was provided
-        if (categoryId) {
-          const { getCategoryById } = await import('./services/categories');
-          const category = await getCategoryById(categoryId);
-          if (category) {
-            briefingTitle = `${category.name} - ${briefingTitle}`;
-          }
-        }
-
-        // Get user interests for briefing
-        const { getUserInterests } = await import('./services/settings');
-        const topics = getUserInterests();
-
-        const insertBriefing = db.prepare(
-          'INSERT INTO Briefings (title, topics_json, articles_json) VALUES (?, ?, ?)'
-        );
-        const briefingResult = insertBriefing.run(
-          briefingTitle,
-          JSON.stringify(topics),
-          JSON.stringify(result.curatedArticles)
-        );
-        const briefingId = Number(briefingResult.lastInsertRowid);
-
-        const insertBriefingArticle = db.prepare(
-          'INSERT INTO Briefing_Articles (briefing_id, article_id) VALUES (?, ?)'
-        );
-
-        const getArticleId = db.prepare(
-          'SELECT id FROM Articles WHERE url = ?'
-        );
-
-        for (const article of result.curatedArticles) {
-          const articleRow = getArticleId.get(article.url) as
-            | { id: number }
-            | undefined;
-          if (articleRow) {
-            insertBriefingArticle.run(briefingId, articleRow.id);
-          }
-        }
-        console.log(
-          `🗞️  Created briefing "${briefingTitle}" with ${result.curatedArticles.length} articles (${result.newArticlesSaved} new, ${result.duplicatesFiltered} duplicates filtered).`
-        );
-
-        // Notify renderer that a new briefing was created
-        notifyRendererBriefingCreated(briefingId);
-
-        // Summary generation is now handled by the unified workflow
-        console.log('📝 Summary generation handled by unified workflow');
-      }
+      // The databaseWriterAgent now handles all briefing creation.
+      // The IPC handler's responsibility is only to trigger the workflow.
 
       return { success: true, data: result };
     } catch (error) {
@@ -364,77 +309,15 @@ function setupNewsIPC(): void {
   // Force refresh (bypasses cooldown periods)
   ipcMain.handle('force-refresh', async () => {
     try {
-      console.log('🔄 Starting force refresh (bypassing cooldowns)...');
-
-      // Reset all interest search attempt times to allow immediate refresh
-      const resetSearchAttempts = db.prepare(`
-        UPDATE Interests 
-        SET last_search_attempt_at = NULL
-      `);
-      const resetResult = resetSearchAttempts.run();
-      console.log(
-        `🔄 Reset search attempts for ${resetResult.changes} interests`
-      );
-
+      console.log('🔄 Forcing news refresh...');
       const { executeNewsCurationWorkflow } = await import(
         './services/news_curator/graph'
       );
-      const result = await executeNewsCurationWorkflow();
+      const result = await executeNewsCurationWorkflow(null, true); // Force refresh ignores categories
       console.log('✅ Force refresh completed successfully');
 
-      // Create briefing when there are curated articles, not just new ones
-      if (result.curatedArticles && result.curatedArticles.length > 0) {
-        let briefingTitle = new Date().toLocaleDateString('en-US', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-        });
-
-        // Force refresh doesn't use categories, so use "General" prefix
-        briefingTitle = `General - ${briefingTitle}`;
-
-        // Get user interests for briefing
-        const { getUserInterests: getUserInterests2 } = await import(
-          './services/settings'
-        );
-        const topics2 = getUserInterests2();
-
-        const insertBriefing = db.prepare(
-          'INSERT INTO Briefings (title, topics_json, articles_json) VALUES (?, ?, ?)'
-        );
-        const briefingResult = insertBriefing.run(
-          briefingTitle,
-          JSON.stringify(topics2),
-          JSON.stringify(result.curatedArticles)
-        );
-        const briefingId = Number(briefingResult.lastInsertRowid);
-
-        const insertBriefingArticle = db.prepare(
-          'INSERT INTO Briefing_Articles (briefing_id, article_id) VALUES (?, ?)'
-        );
-
-        const getArticleId = db.prepare(
-          'SELECT id FROM Articles WHERE url = ?'
-        );
-
-        for (const article of result.curatedArticles) {
-          const articleRow = getArticleId.get(article.url) as
-            | { id: number }
-            | undefined;
-          if (articleRow) {
-            insertBriefingArticle.run(briefingId, articleRow.id);
-          }
-        }
-        console.log(
-          `🗞️  Created briefing "${briefingTitle}" with ${result.curatedArticles.length} articles (${result.newArticlesSaved} new, ${result.duplicatesFiltered} duplicates filtered).`
-        );
-
-        // Notify renderer that a new briefing was created
-        notifyRendererBriefingCreated(briefingId);
-
-        // Summary generation is now handled by the unified workflow
-        console.log('📝 Summary generation handled by unified workflow');
-      }
+      // The databaseWriterAgent now handles all briefing creation.
+      // The IPC handler's responsibility is only to trigger the workflow.
 
       return { success: true, data: result };
     } catch (error) {
@@ -442,7 +325,9 @@ function setupNewsIPC(): void {
       return {
         success: false,
         error:
-          error instanceof Error ? error.message : 'Failed to force refresh',
+          error instanceof Error
+            ? error.message
+            : 'Failed to force refresh',
       };
     }
   });
@@ -531,7 +416,7 @@ function setupNewsIPC(): void {
         './services/news_curator/graph'
       );
       const result = await executeNewsCurationWorkflow();
-      console.log('✅ News curation completed successfully');
+      console.log('✅ Daily news curation completed successfully');
 
       const endTime = Date.now();
       const duration = endTime - startTime;

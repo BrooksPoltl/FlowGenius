@@ -170,9 +170,11 @@ export const newsCuratorGraph = workflow.compile();
  * Execute the unified news curation workflow
  * Includes clustering, ranking, scraping, summarization, and database writing
  * @param categoryId - Optional category ID to filter interests by category
+ * @param force - Optional force parameter to force re-execution
  */
 export async function executeNewsCurationWorkflow(
-  categoryId?: number | null
+  categoryId?: number | null,
+  force?: boolean
 ): Promise<WorkflowResult> {
   console.log('🚀 Starting unified news curation workflow...');
 
@@ -204,6 +206,7 @@ export async function executeNewsCurationWorkflow(
       summarizationComplete: false,
       briefingId: null,
       categoryId,
+      force,
     };
 
     // Execute the workflow using the compiled graph

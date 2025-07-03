@@ -15,7 +15,10 @@ interface Briefing {
 }
 
 interface HistorySidebarProps {
-  onBriefingSelect: (articles: Article[], briefingId: number) => void;
+  onBriefingSelect: (
+    articles: Article[] | null,
+    briefingId: number | null
+  ) => void;
   isLoading: boolean;
   setIsLoading: React.Dispatch<React.SetStateAction<boolean>>;
   setError: React.Dispatch<React.SetStateAction<string | null>>;
@@ -143,6 +146,21 @@ export function HistorySidebar({
           <h2 className="text-lg font-semibold text-gray-900">History</h2>
         </div>
         <p className="text-sm text-gray-500 mt-1">Past news briefings</p>
+      </div>
+
+      {/* View Latest Button */}
+      <div className="p-2 border-b border-gray-200">
+        <button
+          onClick={() => onBriefingSelect(null, null)}
+          className={`w-full text-left p-3 rounded-lg transition-colors hover:bg-gray-50 ${
+            selectedBriefingId === null ? 'bg-blue-50' : ''
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-gray-900">View Latest</p>
+            <ChevronRight className="h-4 w-4 text-gray-400" />
+          </div>
+        </button>
       </div>
 
       {/* Briefings List */}

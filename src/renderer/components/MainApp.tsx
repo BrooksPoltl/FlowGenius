@@ -99,6 +99,12 @@ export function MainApp() {
     };
   }, [currentBriefingId]);
 
+  useEffect(() => {
+    if (selectedBriefingId) {
+      setCurrentBriefingId(selectedBriefingId);
+    }
+  }, [selectedBriefingId]);
+
   /**
    * Check cooldown status for user interests
    */
@@ -192,10 +198,14 @@ export function MainApp() {
    * Handles when a briefing is selected from the history sidebar
    */
   const handleBriefingSelect = (
-    briefingArticles: Article[],
-    briefingId: number
+    briefingArticles: Article[] | null,
+    briefingId: number | null
   ) => {
-    console.log('Selected briefing with', briefingArticles.length, 'articles');
+    console.log(
+      'Selected briefing with',
+      briefingArticles?.length || 0,
+      'articles'
+    );
     setSelectedArticles(briefingArticles);
     setSelectedBriefingId(briefingId);
     setCurrentBriefingId(briefingId);

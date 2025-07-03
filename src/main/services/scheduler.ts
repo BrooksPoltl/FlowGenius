@@ -241,71 +241,12 @@ export class SchedulerService {
     result: Partial<WorkflowState>,
     type: string
   ): Promise<void> {
-    try {
-      // Import database and other dependencies
-      const db = await import('../db').then(m => m.default);
-      const { getUserInterests } = await import('./settings');
-
-      const curatedArticles = result.curatedArticles || [];
-
-      const dateStr = new Date().toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      });
-
-      const briefingTitle = `${type.charAt(0).toUpperCase() + type.slice(1)} - ${dateStr}`;
-
-      const topics = getUserInterests();
-
-      const insertBriefing = db.prepare(
-        'INSERT INTO Briefings (title, topics_json, articles_json) VALUES (?, ?, ?)'
-      );
-      const briefingResult = insertBriefing.run(
-        briefingTitle,
-        JSON.stringify(topics),
-        JSON.stringify(curatedArticles)
-      );
-      const briefingId = Number(briefingResult.lastInsertRowid);
-
-      const insertBriefingArticle = db.prepare(
-        'INSERT INTO Briefing_Articles (briefing_id, article_id) VALUES (?, ?)'
-      );
-
-      const getArticleId = db.prepare('SELECT id FROM Articles WHERE url = ?');
-
-      for (const article of curatedArticles) {
-        const articleRow = getArticleId.get(article.url) as
-          | { id: number }
-          | undefined;
-        if (articleRow) {
-          insertBriefingArticle.run(briefingId, articleRow.id);
-        }
-      }
-
-      console.log(
-        `⏰ Created briefing "${briefingTitle}" with ${curatedArticles.length} articles (${result.newArticlesSaved || 0} new, ${result.duplicatesFiltered || 0} duplicates filtered).`
-      );
-
-      // Notify renderer that a new briefing was created
-      // Dynamic import to avoid circular dependency
-      try {
-        const electron = await import('electron');
-        const mainWindow = electron.BrowserWindow.getAllWindows().find(
-          win => !win.isDestroyed()
-        );
-        if (mainWindow) {
-          mainWindow.webContents.send('briefing-created', briefingId);
-        }
-      } catch (error) {
-        console.error('⏰ Error sending briefing notification:', error);
-      }
-
-      // Summary generation is now handled by the unified workflow
-      console.log('⏰ Summary generation handled by unified workflow');
-    } catch (error) {
-      console.error('⏰ Error creating briefing:', error);
-    }
+    // This function is deprecated and should no longer be used.
+    // All briefing creation is now handled by the unified workflow
+    // and the databaseWriterAgent.
+    console.warn(
+      'DEPRECATED: createBriefingAndStartSummary should not be called.'
+    );
   }
 
   /**

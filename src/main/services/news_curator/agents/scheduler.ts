@@ -15,12 +15,22 @@ export async function interestSchedulerAgent(
   state: Partial<WorkflowState>
 ): Promise<Partial<WorkflowState>> {
   try {
-    console.log('📊 Checking cooldown status for interests...');
-
     const userInterests = state.userInterests || [];
     if (userInterests.length === 0) {
       throw new Error('No user interests provided to scheduler');
     }
+
+    if (state.force) {
+      console.log('💨 Force option enabled, bypassing cooldown check.');
+      return {
+        ...state,
+        scheduledInterests: userInterests,
+        cooledDownInterests: [],
+        schedulingComplete: true,
+      };
+    }
+
+    console.log('📊 Checking cooldown status for interests...');
 
     const { scheduledInterests, cooledDownInterests } =
       await checkCooldownStatus(userInterests);

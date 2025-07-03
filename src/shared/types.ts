@@ -113,7 +113,10 @@ export interface WorkflowState {
   error?: string;
 
   // Optional category filter
-  categoryId?: number;
+  categoryId?: number | null;
+
+  // New force property
+  force?: boolean;
 }
 
 // Database types
