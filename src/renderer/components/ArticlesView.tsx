@@ -49,6 +49,10 @@ export function ArticlesView({
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(
     null
   );
+  const [newBriefingNotification, setNewBriefingNotification] = useState<{
+    show: boolean;
+    briefingId: number | null;
+  }>({ show: false, briefingId: null });
 
   /**
    * Load latest articles from the current briefing
@@ -360,12 +364,23 @@ export function ArticlesView({
   useEffect(() => {
     const unsubscribe = window.electronAPI.onBriefingCreated(briefingId => {
       console.log(
-        `📢 [RENDERER] New briefing created: ${briefingId}, loading latest articles`
+        `📢 [RENDERER] New briefing created: ${briefingId}, automatically switching to latest`
       );
-      // Only auto-load if we're not viewing a specific selected briefing
-      if (!selectedBriefingId) {
-        loadArticles();
+      
+      // Show notification
+      setNewBriefingNotification({ show: true, briefingId });
+      
+      // Auto-hide notification after 5 seconds
+      setTimeout(() => {
+        setNewBriefingNotification({ show: false, briefingId: null });
+      }, 5000);
+      
+      // Always auto-load the latest briefing when a new one is created
+      // This will clear any selected historical briefing and show the new content
+      if (onClearSelection) {
+        onClearSelection(); // Clear the historical selection
       }
+      loadArticles(); // Load the latest briefing
     });
 
     return () => {
@@ -373,7 +388,7 @@ export function ArticlesView({
         unsubscribe();
       }
     };
-  }, [selectedBriefingId, loadArticles]);
+  }, [loadArticles, onClearSelection]);
 
   /**
    * Load categories from backend
@@ -514,6 +529,51 @@ export function ArticlesView({
 
   return (
     <div className="h-full flex flex-col">
+      {/* New Briefing Notification */}
+      {newBriefingNotification.show && (
+        <div className="bg-green-50 border-l-4 border-green-400 p-4 mx-6 mt-4 rounded-md">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <svg
+                  className="h-5 w-5 text-green-400"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </div>
+                             <div className="ml-3">
+                 <p className="text-sm font-medium text-green-800">
+                   🎉 New briefing created! Automatically loaded latest articles.
+                 </p>
+                 <p className="text-xs text-green-600 mt-1">
+                   Check the sidebar to see all your briefings.
+                 </p>
+               </div>
+            </div>
+            <button
+              onClick={() =>
+                setNewBriefingNotification({ show: false, briefingId: null })
+              }
+              className="text-green-400 hover:text-green-600"
+            >
+              <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path
+                  fillRule="evenodd"
+                  d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between">
@@ -552,8 +612,8 @@ export function ArticlesView({
             )}
           </div>
           <div className="flex items-center space-x-3">
-            {/* Category Dropdown */}
-            {!selectedArticles && categories.length > 0 && (
+            {/* Category Dropdown - Always visible and functional */}
+            {categories.length > 0 && (
               <div className="flex items-center space-x-2">
                 <label className="text-sm font-medium text-gray-700">
                   Category:
@@ -577,6 +637,7 @@ export function ArticlesView({
               </div>
             )}
 
+            {/* Back to Latest button - only show when viewing historical articles */}
             {selectedArticles && onClearSelection && (
               <button
                 onClick={onClearSelection}
@@ -585,6 +646,8 @@ export function ArticlesView({
                 Back to Latest
               </button>
             )}
+
+            {/* Test Summary button - always visible */}
             <button
               onClick={handleTestSummary}
               disabled={generatingSummary || !currentBriefingId}
@@ -599,36 +662,37 @@ export function ArticlesView({
                 'Test Summary'
               )}
             </button>
-            {!selectedArticles && (
-              <>
-                <button
-                  onClick={handleCurateNews}
-                  disabled={loading}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-                >
-                  {loading ? (
-                    <>
-                      <div className="animate-spin -ml-1 mr-3 h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
-                      Refreshing...
-                    </>
-                  ) : (
-                    'Refresh'
-                  )}
-                </button>
-                <button
-                  onClick={handleForceRefresh}
-                  disabled={loading}
-                  className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-                  title="Force refresh bypasses cooldown periods and searches all interests"
-                >
-                  {loading ? (
-                    <div className="animate-spin -ml-1 mr-2 h-4 w-4 border-2 border-gray-600 border-t-transparent rounded-full" />
-                  ) : (
-                    'Force'
-                  )}
-                </button>
-              </>
-            )}
+
+            {/* Refresh button - always visible, disabled when viewing historical */}
+            <button
+              onClick={handleCurateNews}
+              disabled={loading || !!selectedArticles}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+              title={selectedArticles ? "Switch to 'Back to Latest' to refresh" : "Refresh articles"}
+            >
+              {loading ? (
+                <>
+                  <div className="animate-spin -ml-1 mr-3 h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                  Refreshing...
+                </>
+              ) : (
+                'Refresh'
+              )}
+            </button>
+
+            {/* Force Refresh button - always visible, disabled when viewing historical */}
+            <button
+              onClick={handleForceRefresh}
+              disabled={loading || !!selectedArticles}
+              className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+              title={selectedArticles ? "Switch to 'Back to Latest' to force refresh" : "Force refresh bypasses cooldown periods and searches all interests"}
+            >
+              {loading ? (
+                <div className="animate-spin -ml-1 mr-2 h-4 w-4 border-2 border-gray-600 border-t-transparent rounded-full" />
+              ) : (
+                'Force'
+              )}
+            </button>
           </div>
         </div>
       </div>

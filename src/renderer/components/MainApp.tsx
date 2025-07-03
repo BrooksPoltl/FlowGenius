@@ -40,7 +40,7 @@ export function MainApp() {
 
   useEffect(() => {
     // Listen for summary ready notifications
-    const unsubscribe = window.electronAPI.onSummaryReady(
+    const unsubscribeSummary = window.electronAPI.onSummaryReady(
       (briefingId: number) => {
         if (briefingId === currentBriefingId) {
           setSummaryReady(true);
@@ -48,9 +48,26 @@ export function MainApp() {
       }
     );
 
+    // Listen for new briefings being created
+    const unsubscribeBriefing = window.electronAPI.onBriefingCreated(
+      (briefingId: number) => {
+        console.log(
+          `📢 [MAIN APP] New briefing created: ${briefingId}, clearing selection and switching to latest`
+        );
+        // Clear any selected historical briefing
+        setSelectedArticles(null);
+        setSelectedBriefingId(null);
+        // Switch to articles tab to show the new content
+        setActiveTab('articles');
+      }
+    );
+
     return () => {
-      if (typeof unsubscribe === 'function') {
-        unsubscribe();
+      if (typeof unsubscribeSummary === 'function') {
+        unsubscribeSummary();
+      }
+      if (typeof unsubscribeBriefing === 'function') {
+        unsubscribeBriefing();
       }
     };
   }, [currentBriefingId]);
