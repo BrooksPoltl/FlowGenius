@@ -34,6 +34,8 @@ export function SettingsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isTestingScheduler, setIsTestingScheduler] = useState(false);
+  const [isTestingNotification, setIsTestingNotification] = useState(false);
+  const [isRequestingPermission, setIsRequestingPermission] = useState(false);
 
   const loadAllSettings = useCallback(async () => {
     setIsLoading(true);
@@ -122,6 +124,38 @@ export function SettingsScreen() {
       toast.error('Failed to trigger manual briefing.');
     } finally {
       setIsTestingScheduler(false);
+    }
+  };
+
+  const testNotification = async () => {
+    setIsTestingNotification(true);
+    try {
+      const result = await window.electronAPI.sendTestNotification();
+      if (result.success) {
+        toast.success('Test notification sent! Check your system notifications.');
+      } else {
+        toast.error(result.error || 'Failed to send test notification.');
+      }
+    } catch (error) {
+      toast.error('Failed to send test notification.');
+    } finally {
+      setIsTestingNotification(false);
+    }
+  };
+
+  const requestNotificationPermission = async () => {
+    setIsRequestingPermission(true);
+    try {
+      const result = await window.electronAPI.requestNotificationPermission();
+      if (result.success && result.data.hasPermission) {
+        toast.success('Notification permission granted! You can now receive notifications.');
+      } else {
+        toast.error('Notification permission was not granted. Please check your system settings.');
+      }
+    } catch (error) {
+      toast.error('Failed to request notification permission.');
+    } finally {
+      setIsRequestingPermission(false);
     }
   };
 
@@ -282,6 +316,54 @@ export function SettingsScreen() {
                     Desktop Notifications
                   </span>
                 </label>
+                
+                <div className="pt-4 border-t border-gray-200">
+                  <div className="space-y-3">
+                    {/* Request Permission Button (macOS only) */}
+                    {navigator.platform.includes('Mac') && (
+                      <div>
+                        <button
+                          onClick={requestNotificationPermission}
+                          disabled={isRequestingPermission}
+                          className="flex items-center space-x-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-md text-sm hover:bg-blue-200 transition-colors disabled:opacity-50 mb-2"
+                        >
+                          {isRequestingPermission ? (
+                            <RefreshCw className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Bell className="h-4 w-4" />
+                          )}
+                          <span>
+                            {isRequestingPermission ? 'Requesting...' : 'Request Permission'}
+                          </span>
+                        </button>
+                        <p className="text-xs text-gray-500 mb-3">
+                          macOS requires explicit permission for notifications. Click to request permission.
+                        </p>
+                      </div>
+                    )}
+                    
+                    {/* Test Notification Button */}
+                    <div>
+                      <button
+                        onClick={testNotification}
+                        disabled={isTestingNotification}
+                        className="flex items-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-md text-sm hover:bg-gray-200 transition-colors disabled:opacity-50"
+                      >
+                        {isTestingNotification ? (
+                          <RefreshCw className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Bell className="h-4 w-4" />
+                        )}
+                        <span>
+                          {isTestingNotification ? 'Sending...' : 'Test Notification'}
+                        </span>
+                      </button>
+                      <p className="text-xs text-gray-500 mt-2">
+                        Send a test notification to check if notifications are working properly.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 

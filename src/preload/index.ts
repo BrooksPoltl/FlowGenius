@@ -138,6 +138,11 @@ const API = {
 
   // Test progress functionality
   triggerTestProgress: () => ipcRenderer.invoke('trigger-test-progress'),
+
+  // Notification testing and management
+  sendTestNotification: () => ipcRenderer.invoke('send-test-notification'),
+  getNotificationPermission: () => ipcRenderer.invoke('get-notification-permission'),
+  requestNotificationPermission: () => ipcRenderer.invoke('request-notification-permission'),
 };
 
 console.log('🔧 API object created:', Object.keys(API));

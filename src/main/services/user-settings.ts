@@ -34,13 +34,30 @@ export function getUserSettings(): UserSettings {
       {} as Record<string, string>
     );
 
-    return {
-      schedule_morning_enabled: settingsMap.schedule_morning_enabled === 'true',
-      schedule_morning_time: settingsMap.schedule_morning_time || '08:00',
-      schedule_evening_enabled: settingsMap.schedule_evening_enabled === 'true',
-      schedule_evening_time: settingsMap.schedule_evening_time || '18:00',
-      notifications_enabled: settingsMap.notifications_enabled === 'true',
+    // Initialize defaults if not present
+    const defaultSettings: UserSettings = {
+      schedule_morning_enabled: true,
+      schedule_morning_time: '08:00',
+      schedule_evening_enabled: true,
+      schedule_evening_time: '18:00',
+      notifications_enabled: true,
     };
+
+    const result: UserSettings = {
+      schedule_morning_enabled: settingsMap.schedule_morning_enabled === 'true',
+      schedule_morning_time: settingsMap.schedule_morning_time || defaultSettings.schedule_morning_time,
+      schedule_evening_enabled: settingsMap.schedule_evening_enabled === 'true',
+      schedule_evening_time: settingsMap.schedule_evening_time || defaultSettings.schedule_evening_time,
+      notifications_enabled: settingsMap.notifications_enabled !== undefined ? settingsMap.notifications_enabled === 'true' : defaultSettings.notifications_enabled,
+    };
+
+    // If notifications_enabled is not set in database, initialize it
+    if (settingsMap.notifications_enabled === undefined) {
+      console.log('📱 Initializing notifications_enabled setting to true');
+      setSetting('notifications_enabled', true);
+    }
+
+    return result;
   } catch (error) {
     console.error('Error getting user settings:', error);
     // Return default settings on error

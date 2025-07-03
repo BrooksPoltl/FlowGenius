@@ -46,6 +46,22 @@ makeAppWithSingleInstanceLock(async () => {
   await app.whenReady();
   console.log('✅ Electron app ready');
 
+  // Check notification support on macOS (don't request permission yet)
+  if (process.platform === 'darwin') {
+    console.log('📱 Checking notification support on macOS...');
+    try {
+      const { Notification } = await import('electron');
+      
+      if (Notification.isSupported()) {
+        console.log('📱 Notifications are supported on this system');
+      } else {
+        console.log('📱 Notifications are not supported on this system');
+      }
+    } catch (error) {
+      console.error('📱 Error checking notification support:', error);
+    }
+  }
+
   // Set app icon at the application level
   try {
     const iconPath = ENVIRONMENT.IS_DEV 
@@ -99,6 +115,7 @@ makeAppWithSingleInstanceLock(async () => {
   setupProgressIPC();
   setupSettingsIPC();
   setupAppControlsIPC();
+  setupNotificationIPC();
 
   console.log('🖼️ Creating main window...');
   await makeAppSetup(MainWindow);
@@ -1129,6 +1146,62 @@ function setupAppControlsIPC(): void {
     } catch (error) {
       console.error('Error resetting application data:', error);
       return { success: false, error: 'Failed to reset application data' };
+    }
+  });
+}
+
+/**
+ * Sets up IPC handlers for notification testing and management
+ */
+function setupNotificationIPC(): void {
+  // Test notification function for debugging
+  ipcMain.handle('send-test-notification', async () => {
+    try {
+      console.log('📱 Sending test notification...');
+      const { NotificationAgent } = await import('./services/news_curator/agents/notification');
+      await NotificationAgent.sendTestNotification();
+      return { success: true };
+    } catch (error) {
+      console.error('📱 Error sending test notification:', error);
+      return { success: false, error: 'Failed to send test notification' };
+    }
+  });
+
+  // Get notification permission status (mainly for debugging)
+  ipcMain.handle('get-notification-permission', async () => {
+    try {
+      const { Notification } = await import('electron');
+      const supported = Notification.isSupported();
+      const settings = getUserSettings();
+      
+      return { 
+        success: true, 
+        data: {
+          systemSupported: supported,
+          userEnabled: settings.notifications_enabled,
+          platform: process.platform
+        }
+      };
+    } catch (error) {
+      console.error('📱 Error getting notification permission:', error);
+      return { success: false, error: 'Failed to get notification permission' };
+    }
+  });
+
+  // Request notification permissions explicitly
+  ipcMain.handle('request-notification-permission', async () => {
+    try {
+      console.log('📱 Explicitly requesting notification permission...');
+      const { NotificationAgent } = await import('./services/news_curator/agents/notification');
+      const hasPermission = await NotificationAgent.requestNotificationPermission();
+      
+      return { 
+        success: true, 
+        data: { hasPermission }
+      };
+    } catch (error) {
+      console.error('📱 Error requesting notification permission:', error);
+      return { success: false, error: 'Failed to request notification permission' };
     }
   });
 }
