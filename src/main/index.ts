@@ -301,10 +301,18 @@ function setupNewsIPC(): void {
           day: 'numeric',
         });
 
+        // Get user interests for briefing
+        const { getUserInterests } = await import('./services/settings');
+        const topics = getUserInterests();
+
         const insertBriefing = db.prepare(
-          'INSERT INTO Briefings (title) VALUES (?)'
+          'INSERT INTO Briefings (title, topics_json, articles_json) VALUES (?, ?, ?)'
         );
-        const briefingResult = insertBriefing.run(briefingTitle);
+        const briefingResult = insertBriefing.run(
+          briefingTitle,
+          JSON.stringify(topics),
+          JSON.stringify(result.curatedArticles)
+        );
         const briefingId = Number(briefingResult.lastInsertRowid);
 
         const insertBriefingArticle = db.prepare(
@@ -331,8 +339,6 @@ function setupNewsIPC(): void {
         const { generateSummaryInBackground } = await import(
           './services/news_curator/graph'
         );
-        const { getUserInterests } = await import('./services/settings');
-        const topics = getUserInterests();
 
         generateSummaryInBackground(
           briefingId,
@@ -383,10 +389,20 @@ function setupNewsIPC(): void {
           day: 'numeric',
         });
 
-        const insertBriefing = db.prepare(
-          'INSERT INTO Briefings (title) VALUES (?)'
+        // Get user interests for briefing
+        const { getUserInterests: getUserInterests2 } = await import(
+          './services/settings'
         );
-        const briefingResult = insertBriefing.run(briefingTitle);
+        const topics2 = getUserInterests2();
+
+        const insertBriefing = db.prepare(
+          'INSERT INTO Briefings (title, topics_json, articles_json) VALUES (?, ?, ?)'
+        );
+        const briefingResult = insertBriefing.run(
+          briefingTitle,
+          JSON.stringify(topics2),
+          JSON.stringify(result.curatedArticles)
+        );
         const briefingId = Number(briefingResult.lastInsertRowid);
 
         const insertBriefingArticle = db.prepare(
@@ -413,13 +429,11 @@ function setupNewsIPC(): void {
         const { generateSummaryInBackground } = await import(
           './services/news_curator/graph'
         );
-        const { getUserInterests } = await import('./services/settings');
-        const topics = getUserInterests();
 
         generateSummaryInBackground(
           briefingId,
           result.curatedArticles,
-          topics,
+          topics2,
           false
         ).catch(error => {
           console.error('❌ Background summary generation failed:', error);
@@ -557,10 +571,20 @@ function setupNewsIPC(): void {
           day: 'numeric',
         });
 
-        const insertBriefing = db.prepare(
-          'INSERT INTO Briefings (title) VALUES (?)'
+        // Get user interests for briefing
+        const { getUserInterests: getUserInterests3 } = await import(
+          './services/settings'
         );
-        const briefingResult = insertBriefing.run(briefingTitle);
+        const topics3 = getUserInterests3();
+
+        const insertBriefing = db.prepare(
+          'INSERT INTO Briefings (title, topics_json, articles_json) VALUES (?, ?, ?)'
+        );
+        const briefingResult = insertBriefing.run(
+          briefingTitle,
+          JSON.stringify(topics3),
+          JSON.stringify(result.curatedArticles)
+        );
         const briefingId = Number(briefingResult.lastInsertRowid);
 
         const insertBriefingArticle = db.prepare(
@@ -587,13 +611,11 @@ function setupNewsIPC(): void {
         const { generateSummaryInBackground } = await import(
           './services/news_curator/graph'
         );
-        const { getUserInterests } = await import('./services/settings');
-        const topics = getUserInterests();
 
         generateSummaryInBackground(
           briefingId,
           result.curatedArticles,
-          topics,
+          topics3,
           false
         ).catch(error => {
           console.error('❌ Background summary generation failed:', error);
