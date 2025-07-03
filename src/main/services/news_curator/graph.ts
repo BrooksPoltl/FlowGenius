@@ -133,6 +133,14 @@ const NewsCuratorState = Annotation.Root({
     reducer: (current, update) => update ?? current,
   }),
 
+  // Pass-through state for workflow control
+  categoryId: Annotation<number | null>({
+    reducer: (current, update) => update ?? current,
+  }),
+  force: Annotation<boolean>({
+    reducer: (current, update) => update ?? current,
+  }),
+
   // Error handling
   error: Annotation<string>({
     reducer: (current, update) => update ?? current,

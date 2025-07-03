@@ -4,23 +4,35 @@
  */
 
 import { getUserInterests } from '../../settings';
+import { getInterestsForCategory } from '../../categories';
 import type { WorkflowState } from '../../../../shared/types';
 
 /**
  * SettingsAgent function that retrieves user interests from the database
- * @param _state - Current state (can be empty for initial call)
+ * @param state - Current state, may contain a categoryId to filter interests
  * @returns Updated state with user interests
  */
 
 export async function settingsAgent(
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _state: Partial<WorkflowState>
+  state: Partial<WorkflowState>
 ): Promise<Partial<WorkflowState>> {
   try {
-    const interests = getUserInterests();
+    let interests: string[] = [];
+    const { categoryId } = state;
+
+    if (categoryId) {
+      console.log(`🔍 [AGENT] Loading interests for category: ${categoryId}`);
+      interests = getInterestsForCategory(categoryId);
+    } else {
+      console.log('🔍 [AGENT] Loading all user interests for General briefing');
+      interests = getUserInterests();
+    }
 
     if (interests.length === 0) {
-      throw new Error('No interests found. Please add some interests first.');
+      const errorMessage = categoryId
+        ? `No interests found for category ${categoryId}. Please add some interests to this category.`
+        : 'No interests found. Please add some interests first.';
+      throw new Error(errorMessage);
     }
 
     return {

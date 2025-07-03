@@ -11,7 +11,6 @@ import { DashboardScreen } from '../screens/dashboard';
 import { SettingsScreen } from '../screens/settings';
 import { HistorySidebar } from './HistorySidebar';
 import { ArticlesView } from './ArticlesView';
-import { SummaryView } from './SummaryView';
 import { InterestsModal } from './InterestsModal';
 import { Article } from './ui/ArticleCard';
 import { Category } from '../../shared/types';
@@ -24,7 +23,6 @@ export function MainApp() {
   const [currentBriefingId, setCurrentBriefingId] = useState<number | null>(
     null
   );
-  const [summaryReady, setSummaryReady] = useState(false);
   const [isInterestsModalOpen, setIsInterestsModalOpen] = useState(false);
 
   // Shared state that persists across screen navigation
@@ -63,7 +61,7 @@ export function MainApp() {
     const unsubscribeSummary = window.electronAPI.onSummaryReady(
       (briefingId: number) => {
         if (briefingId === currentBriefingId) {
-          setSummaryReady(true);
+          // Summary is ready for the current briefing
         }
       }
     );
@@ -101,7 +99,7 @@ export function MainApp() {
   /**
    * Trigger news curation workflow
    */
-  const handleCurateNews = async () => {
+  const handleCurateNews = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
@@ -135,7 +133,7 @@ export function MainApp() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [selectedCategoryId]);
 
   /**
    * Force refresh that bypasses cooldown periods
@@ -281,17 +279,23 @@ export function MainApp() {
                     {/* Category dropdown */}
                     {categories.length > 0 && (
                       <div className="flex items-center space-x-2">
-                        <label className="text-sm font-medium text-gray-700">
-                          Category:
+                        <label
+                          htmlFor="categorySelect"
+                          className="text-sm font-medium text-gray-700"
+                        >
+                          Category
                         </label>
                         <select
-                          value={selectedCategoryId || ''}
+                          id="categorySelect"
+                          value={selectedCategoryId === null ? 'general' : selectedCategoryId}
                           onChange={e => {
-                            const newCategoryId = e.target.value
-                              ? Number(e.target.value)
-                              : null;
-                            setSelectedCategoryId(newCategoryId);
-                            // Clear historical articles when category changes to show fresh content
+                            const value = e.target.value;
+                            if (value === 'general') {
+                              setSelectedCategoryId(null);
+                            } else {
+                              setSelectedCategoryId(Number(value));
+                            }
+                            // Clear historical articles when category changes
                             if (selectedArticles) {
                               setSelectedArticles(null);
                               setSelectedBriefingId(null);
@@ -299,7 +303,7 @@ export function MainApp() {
                           }}
                           className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500 bg-white"
                         >
-                          <option value="">General (All Interests)</option>
+                          <option value="general">General</option>
                           {categories.map(category => (
                             <option key={category.id} value={category.id}>
                               {category.name}

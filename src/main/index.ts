@@ -281,32 +281,24 @@ function setupNewsIPC(): void {
     }
   });
 
-  // Curate news (trigger workflow)
-  ipcMain.handle('curate-news', async (_, categoryId?: number | null) => {
+  // Curate news
+  ipcMain.handle('curate-news', async (_, categoryId: number | null) => {
     try {
       console.log(
-        `📰 Starting news curation workflow for category ${categoryId || 'General'}...`
+        `📰 [IPC] Received request to curate news for category ID: ${categoryId}`
       );
       const { executeNewsCurationWorkflow } = await import(
         './services/news_curator/graph'
       );
       const result = await executeNewsCurationWorkflow(categoryId);
-      console.log('✅ News curation completed successfully');
-
-      // The databaseWriterAgent now handles all briefing creation.
-      // The IPC handler's responsibility is only to trigger the workflow.
-
       return { success: true, data: result };
     } catch (error) {
       console.error('Error curating news:', error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to curate news',
-      };
+      return { success: false, error: 'Failed to curate news' };
     }
   });
 
-  // Force refresh (bypasses cooldown periods)
+  // Force refresh news
   ipcMain.handle('force-refresh', async () => {
     try {
       console.log('🔄 Forcing news refresh...');
@@ -325,7 +317,9 @@ function setupNewsIPC(): void {
       return {
         success: false,
         error:
-          error instanceof Error ? error.message : 'Failed to force refresh',
+          error instanceof Error
+            ? error.message
+            : 'Failed to force refresh',
       };
     }
   });
