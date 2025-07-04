@@ -172,25 +172,23 @@ async function searchNewsForTopic(
     return [];
   }
 
-  return data.results.map(
-    (result: Record<string, unknown>): SharedArticle => {
-      const thumbnailUrl = (result.thumbnail as Record<string, unknown>)
-        ?.src as string;
+  return data.results.map((result: Record<string, unknown>): SharedArticle => {
+    const thumbnailUrl = (result.thumbnail as Record<string, unknown>)
+      ?.src as string;
 
-      return {
-        id: (result.url as string) || '',
-        title: (result.title as string) || 'No title',
-        url: (result.url as string) || '',
-        description: (result.description as string) || '',
-        source:
-          ((result.meta_url as Record<string, unknown>)?.hostname as string) ||
-          (result.url as string) ||
-          'Unknown source',
-        publishedAt:
-          formatPublishedDate(result.age as string) || new Date().toISOString(),
-        thumbnail_url: thumbnailUrl,
-        score: 0, // Will be set during ranking
-      };
-    }
-  );
+    return {
+      id: (result.url as string) || '',
+      title: (result.title as string) || 'No title',
+      url: (result.url as string) || '',
+      description: (result.description as string) || '',
+      source:
+        ((result.meta_url as Record<string, unknown>)?.hostname as string) ||
+        (result.url as string) ||
+        'Unknown source',
+      publishedAt:
+        formatPublishedDate(result.age as string) || new Date().toISOString(),
+      thumbnail_url: thumbnailUrl,
+      score: 0, // Will be set during ranking
+    };
+  });
 }

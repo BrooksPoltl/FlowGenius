@@ -129,7 +129,7 @@ export function HistorySidebar({
         `📢 [RENDERER] New briefing created: ${briefingId}, refreshing list and auto-selecting`
       );
       loadBriefings();
-      
+
       // Auto-select the new briefing after a brief delay to ensure list is updated
       setTimeout(() => {
         console.log(`📢 [RENDERER] Auto-selecting new briefing ${briefingId}`);
@@ -154,8 +154,6 @@ export function HistorySidebar({
         </div>
         <p className="text-sm text-gray-500 mt-1">Past news briefings</p>
       </div>
-
-
 
       {/* Briefings List */}
       <div className="flex-1 overflow-y-auto">

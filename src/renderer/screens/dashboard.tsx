@@ -73,7 +73,7 @@ export function DashboardScreen() {
           `🔧 Waiting for electronAPI... attempt ${i + 1}/${maxRetries}`
         );
         await new Promise<void>(resolve => {
-          setTimeout(resolve, delay);
+          setTimeout(() => resolve(), delay);
         });
       }
       return false;

@@ -19,72 +19,79 @@ let mainWindow: BrowserWindow | null = null;
  */
 function createSystemTray() {
   let trayIcon;
-  
+
   try {
     // Create a black template image that will work properly on macOS
     const size = 16;
     const canvas = Buffer.alloc(size * size * 4, 0); // RGBA buffer
-    
+
     // Create simple "PN" pattern in black (for template image)
     for (let y = 0; y < size; y++) {
       for (let x = 0; x < size; x++) {
         const i = (y * size + x) * 4;
-        
+
         // Create a simple pattern - black pixels where we want the icon
         let shouldDraw = false;
-        
+
         // Draw a simple "P" on the left side (x < 8)
         if (x < 8) {
-          if (x === 1 || x === 2) { // Vertical line of P
+          if (x === 1 || x === 2) {
+            // Vertical line of P
             if (y >= 2 && y <= 13) shouldDraw = true;
           }
-          if (y === 2 || y === 7) { // Horizontal lines of P
+          if (y === 2 || y === 7) {
+            // Horizontal lines of P
             if (x >= 1 && x <= 6) shouldDraw = true;
           }
           if (x === 6 && y >= 2 && y <= 7) shouldDraw = true; // Right side of P
         }
-        
+
         // Draw a simple "N" on the right side (x >= 8)
         if (x >= 8) {
-          if (x === 9 || x === 10) { // Left vertical line of N
+          if (x === 9 || x === 10) {
+            // Left vertical line of N
             if (y >= 2 && y <= 13) shouldDraw = true;
           }
-          if (x === 13 || x === 14) { // Right vertical line of N
+          if (x === 13 || x === 14) {
+            // Right vertical line of N
             if (y >= 2 && y <= 13) shouldDraw = true;
           }
           // Diagonal line of N
           if (x === 11 && (y === 4 || y === 5)) shouldDraw = true;
           if (x === 12 && (y === 6 || y === 7)) shouldDraw = true;
         }
-        
+
         if (shouldDraw) {
-          canvas[i] = 0;       // R - black
-          canvas[i + 1] = 0;   // G - black
-          canvas[i + 2] = 0;   // B - black
+          canvas[i] = 0; // R - black
+          canvas[i + 1] = 0; // G - black
+          canvas[i + 2] = 0; // B - black
           canvas[i + 3] = 255; // A - opaque
         } else {
-          canvas[i] = 0;       // R
-          canvas[i + 1] = 0;   // G
-          canvas[i + 2] = 0;   // B
-          canvas[i + 3] = 0;   // A - transparent
+          canvas[i] = 0; // R
+          canvas[i + 1] = 0; // G
+          canvas[i + 2] = 0; // B
+          canvas[i + 3] = 0; // A - transparent
         }
       }
     }
-    
-    trayIcon = nativeImage.createFromBuffer(canvas, { width: size, height: size });
-    
+
+    trayIcon = nativeImage.createFromBuffer(canvas, {
+      width: size,
+      height: size,
+    });
+
     // Set as template image for proper macOS appearance
     trayIcon.setTemplateImage(true);
-    
+
     console.log('Tray icon created successfully, size:', trayIcon.getSize());
   } catch (error) {
     console.error('Error creating tray icon:', error);
     // Fallback to empty icon
     trayIcon = nativeImage.createEmpty();
   }
-  
+
   tray = new Tray(trayIcon);
-  
+
   if (tray) {
     console.log('System tray created successfully');
   } else {

@@ -179,14 +179,13 @@ export function ArticleCard({
         </p>
 
         {/* Personalization Score (for debugging) */}
-        {article.score !== undefined &&
-          article.score > 0 && (
-            <div className="mb-4">
-              <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
-                Score: {article.score.toFixed(2)}
-              </span>
-            </div>
-          )}
+        {article.score !== undefined && article.score > 0 && (
+          <div className="mb-4">
+            <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
+              Score: {article.score.toFixed(2)}
+            </span>
+          </div>
+        )}
 
         {/* Action buttons */}
         <div className="flex items-center justify-between">

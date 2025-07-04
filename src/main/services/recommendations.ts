@@ -21,11 +21,19 @@ export function getTopicRecommendations(): TopicRecommendation[] {
     console.log('Generating top 3 topic recommendations...');
 
     // First, let's check what data we have for debugging
-    const totalTopics = db.prepare('SELECT COUNT(*) as count FROM Topics').get() as { count: number };
-    const totalAffinities = db.prepare('SELECT COUNT(*) as count FROM TopicAffinities').get() as { count: number };
-    const totalInterests = db.prepare('SELECT COUNT(*) as count FROM Interests').get() as { count: number };
-    
-    console.log(`Debug: ${totalTopics.count} topics, ${totalAffinities.count} affinities, ${totalInterests.count} interests`);
+    const totalTopics = db
+      .prepare('SELECT COUNT(*) as count FROM Topics')
+      .get() as { count: number };
+    const totalAffinities = db
+      .prepare('SELECT COUNT(*) as count FROM TopicAffinities')
+      .get() as { count: number };
+    const totalInterests = db
+      .prepare('SELECT COUNT(*) as count FROM Interests')
+      .get() as { count: number };
+
+    console.log(
+      `Debug: ${totalTopics.count} topics, ${totalAffinities.count} affinities, ${totalInterests.count} interests`
+    );
 
     // Just get any topics that aren't already interests
     const stmt = db.prepare(`
@@ -46,10 +54,12 @@ export function getTopicRecommendations(): TopicRecommendation[] {
     const recommendations = stmt.all() as TopicRecommendation[];
 
     console.log(`Found ${recommendations.length} topic recommendations`);
-    
+
     // Log the recommendations for debugging
     recommendations.forEach((rec, index) => {
-      console.log(`  ${index + 1}. ${rec.topicName} (affinity: ${rec.affinityScore.toFixed(3)}, interactions: ${rec.interactionCount})`);
+      console.log(
+        `  ${index + 1}. ${rec.topicName} (affinity: ${rec.affinityScore.toFixed(3)}, interactions: ${rec.interactionCount})`
+      );
     });
 
     return recommendations;

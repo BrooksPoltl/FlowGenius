@@ -139,11 +139,7 @@ Only return the JSON array, no other text.
             continue;
           }
 
-          insertArticleTopic.run(
-            articleData.id,
-            topicData.id,
-            topic.relevance
-          );
+          insertArticleTopic.run(articleData.id, topicData.id, topic.relevance);
 
           totalTopicsExtracted++;
         } catch (topicError) {

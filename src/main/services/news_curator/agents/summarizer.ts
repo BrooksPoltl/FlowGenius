@@ -155,7 +155,7 @@ export class SummarizerAgent {
       this.generateQuickBites(remainingContent),
       this.generateTitleAndSubtitle(topics, mainStories),
     ]);
-    
+
     // These are synchronous and can be run while network calls are in flight
     const images = SummarizerAgent.extractImages(
       scrapedContent,

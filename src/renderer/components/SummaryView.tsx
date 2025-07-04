@@ -89,7 +89,7 @@ export function SummaryView({ briefingId, summaryReady }: SummaryViewProps) {
   /**
    * Handles link clicks and tracks interaction analytics
    */
-  const handleLinkClick = async (url: string, event: React.MouseEvent) => {
+  const handleLinkClick = async (url: string) => {
     try {
       // Track click interaction for analytics
       await window.electronAPI.handleInteraction(url, 'click');
@@ -110,11 +110,15 @@ export function SummaryView({ briefingId, summaryReady }: SummaryViewProps) {
   // Auto-retry logic: if summaryReady is true but we don't have summary yet, retry after a delay
   useEffect(() => {
     let retryTimeout: NodeJS.Timeout;
-    
+
     if (summaryReady && briefingId && !summary && !loading && error) {
-      console.log(`📋 [RENDERER] Summary should be ready but not loaded, retrying in 2 seconds...`);
+      console.log(
+        `📋 [RENDERER] Summary should be ready but not loaded, retrying in 2 seconds...`
+      );
       retryTimeout = setTimeout(() => {
-        console.log(`📋 [RENDERER] Auto-retrying summary load for briefing ${briefingId}`);
+        console.log(
+          `📋 [RENDERER] Auto-retrying summary load for briefing ${briefingId}`
+        );
         loadSummary();
       }, 2000);
     }
@@ -288,7 +292,7 @@ export function SummaryView({ briefingId, summaryReady }: SummaryViewProps) {
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-blue-600 hover:text-blue-800 underline"
-                          onClick={(event) => handleLinkClick(citation, event)}
+                          onClick={() => handleLinkClick(citation)}
                         >
                           {new URL(citation).hostname}
                           {citIndex < story.citations.length - 1 && ', '}
@@ -325,7 +329,7 @@ export function SummaryView({ briefingId, summaryReady }: SummaryViewProps) {
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-xs text-blue-600 hover:text-blue-800 underline"
-                    onClick={(event) => handleLinkClick(bite.citation, event)}
+                    onClick={() => handleLinkClick(bite.citation)}
                   >
                     {new URL(bite.citation).hostname}
                   </a>
@@ -349,7 +353,7 @@ export function SummaryView({ briefingId, summaryReady }: SummaryViewProps) {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-start space-x-3 p-3 bg-white rounded border border-gray-200 hover:bg-gray-50 transition-colors"
-                  onClick={(event) => handleLinkClick(citation.url, event)}
+                  onClick={() => handleLinkClick(citation.url)}
                 >
                   {/* Thumbnail */}
                   {citation.thumbnail_url && (
@@ -365,7 +369,7 @@ export function SummaryView({ briefingId, summaryReady }: SummaryViewProps) {
                       />
                     </div>
                   )}
-                  
+
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900 truncate">
                       {citation.title}

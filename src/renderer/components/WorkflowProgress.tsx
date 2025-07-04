@@ -21,7 +21,10 @@ interface WorkflowProgressProps {
   onClose?: () => void;
 }
 
-export function WorkflowProgress({ isVisible, onClose }: WorkflowProgressProps) {
+export function WorkflowProgress({
+  isVisible,
+  onClose,
+}: WorkflowProgressProps) {
   const [progress, setProgress] = useState<WorkflowProgress | null>(null);
   const [isComplete, setIsComplete] = useState(false);
 
@@ -29,14 +32,17 @@ export function WorkflowProgress({ isVisible, onClose }: WorkflowProgressProps) 
     if (!isVisible) return;
 
     // Listen for progress updates
-    const unsubscribe = window.electronAPI.onWorkflowProgress((newProgress) => {
+    const unsubscribe = window.electronAPI.onWorkflowProgress(newProgress => {
       console.log('📊 Received progress update:', newProgress);
       setProgress(newProgress);
-      
+
       // Check if workflow is complete
-      if (newProgress.stepIndex === newProgress.totalSteps && newProgress.status === 'completed') {
+      if (
+        newProgress.stepIndex === newProgress.totalSteps &&
+        newProgress.status === 'completed'
+      ) {
         setIsComplete(true);
-        
+
         // Auto-close after 2 seconds when complete
         setTimeout(() => {
           onClose?.();
@@ -84,8 +90,8 @@ export function WorkflowProgress({ isVisible, onClose }: WorkflowProgressProps) 
             {isComplete ? 'News Curation Complete!' : 'Curating Your News'}
           </h3>
           <p className="text-sm text-gray-600">
-            {isComplete 
-              ? 'Your personalized briefing is ready' 
+            {isComplete
+              ? 'Your personalized briefing is ready'
               : 'Please wait while we gather and organize your news...'}
           </p>
         </div>
@@ -119,8 +125,6 @@ export function WorkflowProgress({ isVisible, onClose }: WorkflowProgressProps) 
                 )}
               </div>
             </div>
-
-
           </div>
         )}
 
@@ -171,11 +175,11 @@ export function TestProgressButton() {
       >
         Test Progress
       </button>
-      
-      <WorkflowProgress 
+
+      <WorkflowProgress
         isVisible={showProgress}
         onClose={() => setShowProgress(false)}
       />
     </>
   );
-} 
+}

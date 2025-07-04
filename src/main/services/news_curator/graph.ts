@@ -56,16 +56,56 @@ export interface WorkflowProgress {
 
 // Workflow step definitions
 const WORKFLOW_STEPS = [
-  { key: 'settings', name: 'Loading Settings', message: 'Retrieving user preferences and interests' },
-  { key: 'scheduler', name: 'Checking Schedule', message: 'Processing interest cooldowns and scheduling' },
-  { key: 'search', name: 'Searching Articles', message: 'Finding relevant news articles' },
-  { key: 'curate', name: 'Curating Content', message: 'Filtering and organizing articles' },
-  { key: 'clustering', name: 'Clustering Articles', message: 'Grouping related articles together' },
-  { key: 'extract_topics', name: 'Extracting Topics', message: 'Analyzing article topics and themes' },
-  { key: 'rank', name: 'Ranking Articles', message: 'Prioritizing articles by relevance' },
-  { key: 'scraper', name: 'Scraping Content', message: 'Extracting full article content' },
-  { key: 'summarizer', name: 'Generating Summary', message: 'Creating executive summary' },
-  { key: 'database_writer', name: 'Saving Results', message: 'Storing briefing in database' },
+  {
+    key: 'settings',
+    name: 'Loading Settings',
+    message: 'Retrieving user preferences and interests',
+  },
+  {
+    key: 'scheduler',
+    name: 'Checking Schedule',
+    message: 'Processing interest cooldowns and scheduling',
+  },
+  {
+    key: 'search',
+    name: 'Searching Articles',
+    message: 'Finding relevant news articles',
+  },
+  {
+    key: 'curate',
+    name: 'Curating Content',
+    message: 'Filtering and organizing articles',
+  },
+  {
+    key: 'clustering',
+    name: 'Clustering Articles',
+    message: 'Grouping related articles together',
+  },
+  {
+    key: 'extract_topics',
+    name: 'Extracting Topics',
+    message: 'Analyzing article topics and themes',
+  },
+  {
+    key: 'rank',
+    name: 'Ranking Articles',
+    message: 'Prioritizing articles by relevance',
+  },
+  {
+    key: 'scraper',
+    name: 'Scraping Content',
+    message: 'Extracting full article content',
+  },
+  {
+    key: 'summarizer',
+    name: 'Generating Summary',
+    message: 'Creating executive summary',
+  },
+  {
+    key: 'database_writer',
+    name: 'Saving Results',
+    message: 'Storing briefing in database',
+  },
 ];
 
 /**
@@ -78,7 +118,9 @@ function notifyRendererProgress(progress: WorkflowProgress): void {
     );
     if (mainWindow) {
       mainWindow.webContents.send('workflow-progress', progress);
-      console.log(`📊 Progress: ${progress.stepName} (${progress.stepIndex}/${progress.totalSteps})`);
+      console.log(
+        `📊 Progress: ${progress.stepName} (${progress.stepIndex}/${progress.totalSteps})`
+      );
     }
   } catch (error) {
     console.error('📊 Failed to send progress update:', error);
@@ -89,13 +131,13 @@ function notifyRendererProgress(progress: WorkflowProgress): void {
  * Create progress update object
  */
 function createProgressUpdate(
-  stepKey: string, 
-  status: WorkflowProgress['status'], 
+  stepKey: string,
+  status: WorkflowProgress['status'],
   customMessage?: string
 ): WorkflowProgress {
   const stepIndex = WORKFLOW_STEPS.findIndex(step => step.key === stepKey);
   const step = WORKFLOW_STEPS[stepIndex];
-  
+
   return {
     currentStep: stepKey,
     totalSteps: WORKFLOW_STEPS.length,
@@ -113,7 +155,7 @@ const NewsCuratorState = Annotation.Root({
   progress: Annotation<WorkflowProgress>({
     reducer: (current, update) => update ?? current,
   }),
-  
+
   // Settings phase
   userInterests: Annotation<string[]>({
     reducer: (current, update) => update ?? current,
@@ -297,21 +339,26 @@ export async function executeNewsCurationWorkflow(
 
     // Execute the workflow using streaming to get progress updates
     const stream = await newsCuratorGraph.stream(initialState);
-    
+
     for await (const chunk of stream) {
       // chunk contains the updated state after each node execution
       const [nodeName, nodeResult] = Object.entries(chunk)[0];
-      
+
       if (nodeResult && typeof nodeResult === 'object') {
         result = nodeResult;
-        
+
         // Send progress update for completed step
         const completedProgress = createProgressUpdate(nodeName, 'completed');
         notifyRendererProgress(completedProgress);
-        
+
         // Send progress update for next step (if not at the end)
-        const currentStepIndex = WORKFLOW_STEPS.findIndex(step => step.key === nodeName);
-        if (currentStepIndex >= 0 && currentStepIndex < WORKFLOW_STEPS.length - 1) {
+        const currentStepIndex = WORKFLOW_STEPS.findIndex(
+          step => step.key === nodeName
+        );
+        if (
+          currentStepIndex >= 0 &&
+          currentStepIndex < WORKFLOW_STEPS.length - 1
+        ) {
           const nextStep = WORKFLOW_STEPS[currentStepIndex + 1];
           const nextProgress = createProgressUpdate(nextStep.key, 'starting');
           notifyRendererProgress(nextProgress);

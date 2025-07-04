@@ -45,10 +45,17 @@ export function getUserSettings(): UserSettings {
 
     const result: UserSettings = {
       schedule_morning_enabled: settingsMap.schedule_morning_enabled === 'true',
-      schedule_morning_time: settingsMap.schedule_morning_time || defaultSettings.schedule_morning_time,
+      schedule_morning_time:
+        settingsMap.schedule_morning_time ||
+        defaultSettings.schedule_morning_time,
       schedule_evening_enabled: settingsMap.schedule_evening_enabled === 'true',
-      schedule_evening_time: settingsMap.schedule_evening_time || defaultSettings.schedule_evening_time,
-      notifications_enabled: settingsMap.notifications_enabled !== undefined ? settingsMap.notifications_enabled === 'true' : defaultSettings.notifications_enabled,
+      schedule_evening_time:
+        settingsMap.schedule_evening_time ||
+        defaultSettings.schedule_evening_time,
+      notifications_enabled:
+        settingsMap.notifications_enabled !== undefined
+          ? settingsMap.notifications_enabled === 'true'
+          : defaultSettings.notifications_enabled,
     };
 
     // If notifications_enabled is not set in database, initialize it

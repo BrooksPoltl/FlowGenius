@@ -34,9 +34,7 @@ export function MainApp() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(
     null
   );
-  const [error, setError] = useState<string | null>(null);
-
-
+  const [, setError] = useState<string | null>(null);
 
   /**
    * Load categories from backend
@@ -62,22 +60,22 @@ export function MainApp() {
         );
         setCurrentBriefingId(briefingId);
         setShowWorkflowProgress(false); // Close progress modal when briefing is ready
-        
+
         // Add a small delay to ensure database transaction is fully committed
         setTimeout(() => {
-          console.log(`📢 [MAIN APP] Marking summary as ready for briefing ${briefingId}`);
+          console.log(
+            `📢 [MAIN APP] Marking summary as ready for briefing ${briefingId}`
+          );
           setSummaryReady(true); // Summary is created as part of unified workflow
         }, 1000); // 1 second delay to ensure DB commit
       }
     );
 
-    const unsubscribeSummary = window.electronAPI.onSummaryReady(
-      briefingId => {
-        if (briefingId === currentBriefingId) {
-          setSummaryReady(true);
-        }
+    const unsubscribeSummary = window.electronAPI.onSummaryReady(briefingId => {
+      if (briefingId === currentBriefingId) {
+        setSummaryReady(true);
       }
-    );
+    });
 
     return () => {
       if (typeof unsubscribeBriefing === 'function') {
@@ -145,20 +143,29 @@ export function MainApp() {
   ) => {
     setCurrentBriefingId(briefingId);
     setSummaryReady(false); // Reset summary status on new selection
-    
+
     // Check if this briefing already has a summary available
     if (briefingId) {
       try {
-        console.log(`📋 [MAIN APP] Checking if briefing ${briefingId} has summary...`);
+        console.log(
+          `📋 [MAIN APP] Checking if briefing ${briefingId} has summary...`
+        );
         const summary = await window.electronAPI.getSummary(briefingId);
         if (summary) {
-          console.log(`📋 [MAIN APP] Summary exists for briefing ${briefingId}, marking as ready`);
+          console.log(
+            `📋 [MAIN APP] Summary exists for briefing ${briefingId}, marking as ready`
+          );
           setSummaryReady(true);
         } else {
-          console.log(`📋 [MAIN APP] No summary found for briefing ${briefingId}`);
+          console.log(
+            `📋 [MAIN APP] No summary found for briefing ${briefingId}`
+          );
         }
       } catch (error) {
-        console.log(`📋 [MAIN APP] Error checking summary for briefing ${briefingId}:`, error);
+        console.log(
+          `📋 [MAIN APP] Error checking summary for briefing ${briefingId}:`,
+          error
+        );
       }
     }
   };
@@ -330,16 +337,16 @@ export function MainApp() {
             </div>
           ) : currentScreen === 'dashboard' ? (
             <DashboardScreen />
-          ) : (
+          ) : currentScreen === 'settings' ? (
             <SettingsScreen />
-          )}
+          ) : null}
         </main>
       </div>
       <InterestsModal
         isOpen={isInterestsModalOpen}
         onClose={() => setIsInterestsModalOpen(false)}
       />
-      
+
       {/* Workflow Progress Modal */}
       <WorkflowProgress
         isVisible={showWorkflowProgress}

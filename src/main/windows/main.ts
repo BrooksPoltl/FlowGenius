@@ -8,20 +8,20 @@ import { displayName } from '~/package.json';
 
 export async function MainWindow() {
   // Set up icon path with debugging
-  const iconPath = ENVIRONMENT.IS_DEV 
+  const iconPath = ENVIRONMENT.IS_DEV
     ? join(process.cwd(), 'src/resources/public/app-icon.png')
     : join(__dirname, '../resources/public/app-icon.png');
-  
+
   console.log('🖼️ App icon path:', iconPath);
   console.log('🖼️ Icon file exists:', existsSync(iconPath));
-  
+
   // Try to create the icon using nativeImage for better control
   let appIcon;
   try {
     if (existsSync(iconPath)) {
       appIcon = nativeImage.createFromPath(iconPath);
       console.log('🖼️ Icon created successfully, size:', appIcon.getSize());
-      
+
       // Set app icon at the app level (for dock/taskbar)
       app.dock?.setIcon(appIcon);
       console.log('🖼️ App dock icon set successfully');
@@ -33,7 +33,7 @@ export async function MainWindow() {
     console.error('🖼️ Error creating icon:', error);
     appIcon = iconPath; // fallback to string path
   }
-  
+
   const window = createWindow({
     id: 'main',
     title: displayName,
@@ -69,11 +69,14 @@ export async function MainWindow() {
     }
 
     window.show();
-    
+
     // Try setting dock icon again after window is shown (sometimes more reliable)
     if (process.platform === 'darwin' && app.dock && appIcon) {
       try {
-        const iconImage = typeof appIcon === 'string' ? nativeImage.createFromPath(appIcon) : appIcon;
+        const iconImage =
+          typeof appIcon === 'string'
+            ? nativeImage.createFromPath(appIcon)
+            : appIcon;
         const dockIcon = iconImage.resize({ width: 128, height: 128 });
         app.dock.setIcon(dockIcon);
         console.log('🖼️ Dock icon set again after window load');

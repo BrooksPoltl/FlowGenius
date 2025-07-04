@@ -123,15 +123,17 @@ const API = {
   resetApp: () => ipcRenderer.invoke('app:reset'),
 
   // Progress tracking
-  onWorkflowProgress: (callback: (progress: {
-    currentStep: string;
-    totalSteps: number;
-    stepIndex: number;
-    stepName: string;
-    status: 'starting' | 'in_progress' | 'completed' | 'error';
-    message?: string;
-    timestamp: string;
-  }) => void) => {
+  onWorkflowProgress: (
+    callback: (progress: {
+      currentStep: string;
+      totalSteps: number;
+      stepIndex: number;
+      stepName: string;
+      status: 'starting' | 'in_progress' | 'completed' | 'error';
+      message?: string;
+      timestamp: string;
+    }) => void
+  ) => {
     ipcRenderer.on('workflow-progress', (_, progress) => callback(progress));
     return () => ipcRenderer.removeAllListeners('workflow-progress');
   },
@@ -141,8 +143,10 @@ const API = {
 
   // Notification testing and management
   sendTestNotification: () => ipcRenderer.invoke('send-test-notification'),
-  getNotificationPermission: () => ipcRenderer.invoke('get-notification-permission'),
-  requestNotificationPermission: () => ipcRenderer.invoke('request-notification-permission'),
+  getNotificationPermission: () =>
+    ipcRenderer.invoke('get-notification-permission'),
+  requestNotificationPermission: () =>
+    ipcRenderer.invoke('request-notification-permission'),
 };
 
 console.log('🔧 API object created:', Object.keys(API));

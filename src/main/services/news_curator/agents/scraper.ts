@@ -417,7 +417,7 @@ export class ScraperAgent {
     if (timeSinceLastRequest < crawlDelay) {
       const waitTime = crawlDelay - timeSinceLastRequest;
       await new Promise<void>(resolve => {
-        setTimeout(resolve, waitTime);
+        setTimeout(() => resolve(), waitTime);
       });
     }
 

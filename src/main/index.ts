@@ -51,7 +51,7 @@ makeAppWithSingleInstanceLock(async () => {
     console.log('📱 Checking notification support on macOS...');
     try {
       const { Notification } = await import('electron');
-      
+
       if (Notification.isSupported()) {
         console.log('📱 Notifications are supported on this system');
       } else {
@@ -64,29 +64,34 @@ makeAppWithSingleInstanceLock(async () => {
 
   // Set app icon at the application level
   try {
-    const iconPath = ENVIRONMENT.IS_DEV 
+    const iconPath = ENVIRONMENT.IS_DEV
       ? join(process.cwd(), 'src/resources/public/app-icon.png')
       : join(__dirname, '../resources/public/app-icon.png');
-    
+
     console.log('🖼️ Setting app icon:', iconPath);
     console.log('🖼️ App icon exists:', existsSync(iconPath));
-    
+
     if (existsSync(iconPath)) {
       const appIcon = nativeImage.createFromPath(iconPath);
       console.log('🖼️ Icon loaded, size:', appIcon.getSize());
-      
+
       // Resize icon for dock (macOS expects smaller sizes)
       const dockIcon = appIcon.resize({ width: 128, height: 128 });
-      
+
       // Set dock icon on macOS
       if (process.platform === 'darwin' && app.dock) {
         app.dock.setIcon(dockIcon);
-        console.log('🖼️ macOS dock icon set successfully with size:', dockIcon.getSize());
+        console.log(
+          '🖼️ macOS dock icon set successfully with size:',
+          dockIcon.getSize()
+        );
       }
-      
+
       // For Windows/Linux, the icon is set via window configuration
       if (process.platform !== 'darwin') {
-        console.log('🖼️ Icon will be set via window configuration for Windows/Linux');
+        console.log(
+          '🖼️ Icon will be set via window configuration for Windows/Linux'
+        );
       }
     } else {
       console.warn('🖼️ App icon file not found, using default');
@@ -292,7 +297,6 @@ function setupCategoriesIPC(): void {
 function setupNewsIPC(): void {
   console.log('🔗 Starting setupNewsIPC function...');
 
-
   // Curate news
   ipcMain.handle('curate-news', async (_, categoryId: number | null) => {
     try {
@@ -329,9 +333,7 @@ function setupNewsIPC(): void {
       return {
         success: false,
         error:
-          error instanceof Error
-            ? error.message
-            : 'Failed to force refresh',
+          error instanceof Error ? error.message : 'Failed to force refresh',
       };
     }
   });
@@ -759,7 +761,12 @@ function setupNewsIPC(): void {
           ORDER BY created_at DESC
         `
         )
-        .all() as Array<{ id: number; title: string; created_at: string; articles_json: string }>;
+        .all() as Array<{
+        id: number;
+        title: string;
+        created_at: string;
+        articles_json: string;
+      }>;
 
       // Parse articles_json to get actual article count
       const briefings = briefingsRaw.map(briefing => {
@@ -770,7 +777,10 @@ function setupNewsIPC(): void {
             articleCount = Array.isArray(articles) ? articles.length : 0;
           }
         } catch (error) {
-          console.warn(`Failed to parse articles_json for briefing ${briefing.id}:`, error);
+          console.warn(
+            `Failed to parse articles_json for briefing ${briefing.id}:`,
+            error
+          );
         }
 
         return {
@@ -823,16 +833,23 @@ function setupNewsIPC(): void {
         if (briefing.articles_json) {
           articles = JSON.parse(briefing.articles_json);
           if (!Array.isArray(articles)) {
-            console.warn(`📰 [IPC] articles_json is not an array for briefing ${briefingId}`);
+            console.warn(
+              `📰 [IPC] articles_json is not an array for briefing ${briefingId}`
+            );
             articles = [];
           }
         }
       } catch (error) {
-        console.error(`📰 [IPC] Failed to parse articles_json for briefing ${briefingId}:`, error);
+        console.error(
+          `📰 [IPC] Failed to parse articles_json for briefing ${briefingId}:`,
+          error
+        );
         articles = [];
       }
 
-      console.log(`📰 [IPC] Parsed ${articles.length} articles from articles_json`);
+      console.log(
+        `📰 [IPC] Parsed ${articles.length} articles from articles_json`
+      );
       console.log(
         `📰 [IPC] First article:`,
         articles[0] ? JSON.stringify(articles[0], null, 2) : 'None'
@@ -1092,7 +1109,7 @@ function setupSettingsIPC(): void {
 function setupProgressIPC(): void {
   // Progress updates are sent via webContents.send() from the workflow
   // No specific handlers needed, but we can add a test progress function
-  
+
   ipcMain.handle('trigger-test-progress', async () => {
     try {
       // Send a series of test progress updates
@@ -1107,18 +1124,18 @@ function setupProgressIPC(): void {
           message: `Processing test step ${i + 1}`,
           timestamp: new Date().toISOString(),
         };
-        
+
         const mainWindow = BrowserWindow.getAllWindows().find(
           (win: BrowserWindow) => !win.isDestroyed()
         );
         if (mainWindow) {
           mainWindow.webContents.send('workflow-progress', progress);
         }
-        
+
         // Wait a bit between updates
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise<void>(resolve => setTimeout(() => resolve(), 1000));
       }
-      
+
       return { success: true };
     } catch (error) {
       console.error('Error testing progress:', error);
@@ -1158,7 +1175,9 @@ function setupNotificationIPC(): void {
   ipcMain.handle('send-test-notification', async () => {
     try {
       console.log('📱 Sending test notification...');
-      const { NotificationAgent } = await import('./services/news_curator/agents/notification');
+      const { NotificationAgent } = await import(
+        './services/news_curator/agents/notification'
+      );
       await NotificationAgent.sendTestNotification();
       return { success: true };
     } catch (error) {
@@ -1173,14 +1192,14 @@ function setupNotificationIPC(): void {
       const { Notification } = await import('electron');
       const supported = Notification.isSupported();
       const settings = getUserSettings();
-      
-      return { 
-        success: true, 
+
+      return {
+        success: true,
         data: {
           systemSupported: supported,
           userEnabled: settings.notifications_enabled,
-          platform: process.platform
-        }
+          platform: process.platform,
+        },
       };
     } catch (error) {
       console.error('📱 Error getting notification permission:', error);
@@ -1192,16 +1211,22 @@ function setupNotificationIPC(): void {
   ipcMain.handle('request-notification-permission', async () => {
     try {
       console.log('📱 Explicitly requesting notification permission...');
-      const { NotificationAgent } = await import('./services/news_curator/agents/notification');
-      const hasPermission = await NotificationAgent.requestNotificationPermission();
-      
-      return { 
-        success: true, 
-        data: { hasPermission }
+      const { NotificationAgent } = await import(
+        './services/news_curator/agents/notification'
+      );
+      const hasPermission =
+        await NotificationAgent.requestNotificationPermission();
+
+      return {
+        success: true,
+        data: { hasPermission },
       };
     } catch (error) {
       console.error('📱 Error requesting notification permission:', error);
-      return { success: false, error: 'Failed to request notification permission' };
+      return {
+        success: false,
+        error: 'Failed to request notification permission',
+      };
     }
   });
 }
